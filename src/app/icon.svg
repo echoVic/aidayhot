@@ -11,7 +11,7 @@
   </defs>
   
   <!-- 主背景圆形 -->
-  <circle cx="16" cy="16" r="14" fill="#1E88E5" />
+  <circle cx="16" cy="16" r="14" fill="#1E88E5" filter="url(#shadow)"/>
   
   <!-- AI文字 - 亮色 -->
   <text x="16" y="21" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#E2E8F0" opacity="0.95">AI</text>
