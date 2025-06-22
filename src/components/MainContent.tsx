@@ -58,7 +58,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
               <span className="text-sm text-gray-600">排序:</span>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular' | 'trending')}
                 className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="latest">最新发布</option>
