@@ -1,0 +1,42 @@
+<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景渐变圆形 - 深色调 -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2D3748;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1A202C;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <dropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.5)"/>
+    </filter>
+  </defs>
+  
+  <!-- 主背景圆形 -->
+  <circle cx="16" cy="16" r="14" fill="#000" />
+  
+  <!-- AI文字 - 亮色 -->
+  <text x="16" y="21" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="bold" text-anchor="middle" fill="#E2E8F0" opacity="0.95">AI</text>
+  
+  <!-- 科技感装饰 - 金色/橙色调 -->
+  <g stroke="#F6AD55" stroke-width="0.8" fill="none" opacity="0.8">
+    <!-- 顶部左侧电路 -->
+    <path d="M6 8 L9 8 L9 11"/>
+    <circle cx="6" cy="8" r="0.8" fill="#F6AD55"/>
+    
+    <!-- 顶部右侧电路 -->
+    <path d="M26 8 L23 8 L23 11"/>
+    <circle cx="26" cy="8" r="0.8" fill="#F6AD55"/>
+    
+    <!-- 底部左侧电路 -->
+    <path d="M6 24 L9 24 L9 21"/>
+    <circle cx="6" cy="24" r="0.8" fill="#F6AD55"/>
+    
+    <!-- 底部右侧电路 -->
+    <path d="M26 24 L23 24 L23 21"/>
+    <circle cx="26" cy="24" r="0.8" fill="#F6AD55"/>
+  </g>
+  
+  <!-- 中心装饰点 - 蓝色调 -->
+  <!-- <circle cx="16" cy="8" r="1" fill="#4299E1" opacity="0.6"/> -->
+  <!-- <circle cx="16" cy="24" r="1" fill="#4299E1" opacity="0.6"/> -->
+</svg>
+  

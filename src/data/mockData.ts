@@ -26,7 +26,7 @@ export const mockArticles = [
     views: 9876,
     likes: 654,
     tags: ['谷歌', 'TPU', 'AI芯片', '硬件'],
-    imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=400&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&h=400&fit=crop',
     isHot: true
   },
   {
@@ -93,7 +93,7 @@ export const mockArticles = [
     views: 4321,
     likes: 287,
     tags: ['DeepMind', 'AlphaFold', '蛋白质', '生物医学'],
-    imageUrl: 'https://images.unsplash.com/photo-1576324302805-98b56a0c6949?w=800&h=400&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=400&fit=crop'
   },
   {
     id: '8',
@@ -106,7 +106,7 @@ export const mockArticles = [
     views: 3987,
     likes: 245,
     tags: ['字节跳动', '训练平台', '大模型', '千亿参数'],
-    imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=400&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1666875753105-c63a6f3bdc86?w=800&h=400&fit=crop'
   }
 ];
 
