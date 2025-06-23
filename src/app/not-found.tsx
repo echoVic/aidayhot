@@ -1,5 +1,5 @@
-
 import LadderIcon from '@/components/LadderIcon';
+import Link from 'next/link';
 
 export default function NotFound() {
   return (
@@ -35,7 +35,7 @@ export default function NotFound() {
           </div>
           
           {/* 返回首页按钮 */}
-          <a
+          <Link
             href="/"
             className="inline-flex items-center px-6 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
           >
@@ -53,7 +53,7 @@ export default function NotFound() {
               />
             </svg>
             返回首页
-          </a>
+          </Link>
         </div>
         
         {/* 底部装饰 */}

@@ -1,6 +1,7 @@
 'use client'
 
 import LadderIcon from '@/components/LadderIcon';
+import Link from 'next/link';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -65,7 +66,7 @@ export default function Error({ error, reset }: ErrorProps) {
               重试
             </button>
             
-            <a
+            <Link
               href="/"
               className="inline-flex items-center px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
             >
@@ -83,7 +84,7 @@ export default function Error({ error, reset }: ErrorProps) {
                 />
               </svg>
               首页
-            </a>
+            </Link>
           </div>
         </div>
         
