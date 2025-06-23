@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface ToastMessage {
   id: string;
@@ -120,30 +120,30 @@ export function ToastContainer({ toasts, onClose }: ToastContainerProps) {
 export function useToast() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const addToast = (toast: Omit<ToastMessage, 'id'>) => {
+  const addToast = useCallback((toast: Omit<ToastMessage, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
     setToasts(prev => [...prev, { ...toast, id }]);
-  };
+  }, []);
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
+  }, []);
 
-  const showSuccess = (title: string, message?: string) => {
+  const showSuccess = useCallback((title: string, message?: string) => {
     addToast({ type: 'success', title, message });
-  };
+  }, [addToast]);
 
-  const showError = (title: string, message?: string) => {
+  const showError = useCallback((title: string, message?: string) => {
     addToast({ type: 'error', title, message, duration: 7000 });
-  };
+  }, [addToast]);
 
-  const showWarning = (title: string, message?: string) => {
+  const showWarning = useCallback((title: string, message?: string) => {
     addToast({ type: 'warning', title, message });
-  };
+  }, [addToast]);
 
-  const showInfo = (title: string, message?: string) => {
+  const showInfo = useCallback((title: string, message?: string) => {
     addToast({ type: 'info', title, message });
-  };
+  }, [addToast]);
 
   return {
     toasts,

@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArticleService, RealtimeService, type PaginatedResult } from '../lib/database';
 import type { Article } from '../lib/supabase';
 import ArticleCard from './ArticleCard';
-import { ErrorDisplay, DataLoadError } from './ErrorBoundary';
-import { useToast, ToastContainer } from './Toast';
+import { DataLoadError } from './ErrorBoundary';
+import { ToastContainer, useToast } from './Toast';
 
 interface MainContentProps {
   searchQuery?: string;
@@ -28,8 +28,11 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
 
   const { toasts, removeToast, showSuccess, showError, showWarning, showInfo } = useToast();
 
+  // 使用常量避免依赖循环
+  const PAGE_SIZE = 20;
+
   // 加载文章数据
-  const loadArticles = useCallback(async (page = 1, append = false) => {
+  const loadArticles = useCallback(async (page = 1, append = false, showToast = true) => {
     try {
       if (page === 1) {
         setLoading(true);
@@ -42,13 +45,13 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
 
       if (searchQuery) {
         // 搜索文章
-        result = await ArticleService.search(searchQuery, page, pagination.pageSize);
+        result = await ArticleService.search(searchQuery, page, PAGE_SIZE);
       } else if (category && category !== '全部') {
         // 按分类获取文章
-        result = await ArticleService.getByCategory(category, page, pagination.pageSize);
+        result = await ArticleService.getByCategory(category, page, PAGE_SIZE);
       } else {
         // 获取所有文章
-        result = await ArticleService.getAll(page, pagination.pageSize);
+        result = await ArticleService.getAll(page, PAGE_SIZE);
       }
 
       if (append && page > 1) {
@@ -64,20 +67,24 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
         hasMore: result.hasMore
       });
 
-      if (page === 1 && result.data.length > 0) {
-        showSuccess('数据加载成功', `共找到 ${result.total} 篇文章`);
+      // 使用回调方式调用 toast 避免依赖循环
+      if (showToast && page === 1 && result.data.length > 0) {
+        setTimeout(() => showSuccess('数据加载成功', `共找到 ${result.total} 篇文章`), 0);
       }
 
     } catch (err) {
       console.error('加载文章失败:', err);
       const errorMessage = err instanceof Error ? err.message : '加载文章失败，请稍后重试';
       setError(errorMessage);
-      showError('加载失败', errorMessage);
+      // 使用回调方式调用 toast 避免依赖循环
+      if (showToast) {
+        setTimeout(() => showError('加载失败', errorMessage), 0);
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [searchQuery, category, pagination.pageSize, showSuccess, showError]);
+  }, [searchQuery, category]);
 
   // 加载更多文章
   const loadMoreArticles = useCallback(() => {
@@ -100,15 +107,15 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   useEffect(() => {
     const subscription = RealtimeService.subscribeToArticles((payload) => {
       console.log('文章数据变化:', payload);
-      showInfo('数据更新', '检测到新内容，正在刷新...');
-      // 重新加载数据
-      resetAndReload();
+      setTimeout(() => showInfo('数据更新', '检测到新内容，正在刷新...'), 0);
+      // 重新加载数据，不显示 toast 避免循环
+      loadArticles(1, false, false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [resetAndReload, showInfo]);
+  }, [loadArticles]);
 
   // 排序文章
   const sortedArticles = [...articles].sort((a, b) => {
@@ -125,7 +132,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   });
 
   // 处理文章点击（增加浏览量）
-  const handleArticleClick = async (articleId: string) => {
+  const handleArticleClick = useCallback(async (articleId: string) => {
     try {
       await ArticleService.incrementViews(articleId);
       // 更新本地状态
@@ -136,9 +143,9 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
       ));
     } catch (err) {
       console.error('更新浏览量失败:', err);
-      showWarning('操作失败', '无法更新浏览量');
+      setTimeout(() => showWarning('操作失败', '无法更新浏览量'), 0);
     }
-  };
+  }, []);
 
   if (loading) {
     return (
