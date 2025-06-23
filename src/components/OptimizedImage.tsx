@@ -72,7 +72,7 @@ export default function OptimizedImage({
     currentSrc: src,
   });
 
-  const imageRef = useRef<HTMLElement>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Generate optimized src
@@ -195,7 +195,7 @@ export default function OptimizedImage({
       <div 
         className={`bg-gray-200 flex items-center justify-center ${className}`}
         style={{ width, height, ...style }}
-        ref={imageRef as any}
+        ref={imageRef}
       >
         <span className="text-gray-500 text-sm">图片加载失败</span>
       </div>
@@ -203,7 +203,7 @@ export default function OptimizedImage({
   }
 
   return (
-    <div ref={imageRef as any} className="relative">
+    <div ref={imageRef} className="relative">
       {imageState.isLoading && (
         <div 
           className="absolute inset-0 bg-gray-200 animate-pulse"

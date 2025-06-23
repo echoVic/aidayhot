@@ -111,6 +111,7 @@ export interface GitHubRepository {
     type: string;
   };
   checksum: string;
+  metadata?: Record<string, any>;
 }
 
 export interface GitHubCrawlerResult extends CrawlerResult<GitHubRepository[]> {

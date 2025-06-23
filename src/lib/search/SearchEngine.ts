@@ -459,3 +459,40 @@ export class LocalSearchProvider implements SearchProvider {
   }
 }
 
+// Create and export default search engine instance
+const localProvider = new LocalSearchProvider();
+export const defaultSearchEngine = new SearchEngine(localProvider, {
+  provider: 'local',
+  index: {
+    name: 'articles',
+    fields: [
+      { name: 'title', type: 'text', searchable: true, highlightable: true, weight: 2 },
+      { name: 'content', type: 'text', searchable: true, highlightable: true },
+      { name: 'author', type: 'keyword', facetable: true },
+      { name: 'category', type: 'keyword', facetable: true },
+      { name: 'tags', type: 'keyword', facetable: true },
+      { name: 'publishTime', type: 'date', sortable: true },
+    ],
+    settings: {
+      fuzzyMatching: true,
+      stemming: true,
+    },
+  },
+  caching: {
+    enabled: true,
+    maxSize: 1000,
+    ttl: 300, // 5 minutes
+  },
+  suggestions: {
+    enabled: true,
+    minQueryLength: 2,
+    maxSuggestions: 5,
+    fuzzyMatching: true,
+  },
+  analytics: {
+    enabled: true,
+    trackQueries: true,
+    trackClicks: true,
+  },
+});
+

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import type { SearchFilters, SearchFacets } from '../../lib/search/types';
+import React, { useCallback, useState } from 'react';
+import type { SearchFacets, SearchFilters } from '../../lib/search/types';
 
 interface SearchFiltersProps {
   filters: SearchFilters;
@@ -41,12 +41,12 @@ export default function SearchFiltersComponent({
     });
   }, []);
 
-  const handleFilterChange = useCallback((filterType: string, value: any) => {
+  const handleFilterChange = useCallback((filterType: string, value: unknown) => {
     onChange({ [filterType]: value });
   }, [onChange]);
 
   const handleArrayFilterToggle = useCallback((filterType: string, value: string) => {
-    const currentValues = (filters as any)[filterType] || [];
+    const currentValues = (filters as Record<string, unknown>)[filterType] as string[] || [];
     const newValues = currentValues.includes(value)
       ? currentValues.filter((v: string) => v !== value)
       : [...currentValues, value];

@@ -1,11 +1,11 @@
 import crypto from 'crypto';
-import type { 
-  BaseCrawler as IBaseCrawler, 
-  CrawlerOptions, 
-  CrawlerResult, 
+import type {
   CrawlerError,
+  CrawlerOptions,
+  CrawlerResult,
+  BaseCrawler as IBaseCrawler,
   RateLimitConfig,
-  RateLimitStatus 
+  RateLimitStatus
 } from './types';
 
 /**
@@ -81,7 +81,7 @@ export abstract class BaseCrawler implements IBaseCrawler {
       const rateLimitStatus = this.getRateLimitStatus();
       
       return {
-        healthy: isConfigValid && !rateLimitStatus.remaining <= 0,
+        healthy: isConfigValid && !(rateLimitStatus.remaining <= 0),
         lastRun: this.lastRequestTime > new Date(0) ? this.lastRequestTime : undefined,
         errors: isConfigValid ? [] : ['Invalid configuration'],
       };

@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultSearchEngine } from '../lib/search/SearchEngine';
 import type {
-    SearchFilters,
-    SearchQuery,
-    SearchResult,
-    SearchSort,
-    SearchSuggestion,
-    UseSearchOptions,
-    UseSearchReturn,
+  SearchFilters,
+  SearchQuery,
+  SearchResult,
+  SearchSort,
+  SearchSuggestion,
+  UseSearchOptions,
+  UseSearchReturn,
 } from '../lib/search/types';
 
 /**
@@ -34,8 +34,8 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
   const [error, setError] = useState<string | null>(null);
 
   // Refs
-  const debounceRef = useRef<NodeJS.Timeout>();
-  const abortControllerRef = useRef<AbortController>();
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const searchHistoryRef = useRef<string[]>([]);
 
   // Debounced search function
@@ -249,7 +249,7 @@ export function useSearchSuggestions(query: string, options: {
 
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const getSuggestions = useCallback(async (searchQuery: string) => {
     if (searchQuery.length < minQueryLength) {
