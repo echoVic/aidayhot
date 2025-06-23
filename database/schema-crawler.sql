@@ -98,9 +98,65 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION increment_likes(article_id TEXT)
 RETURNS void AS $$
 BEGIN
-  UPDATE articles 
+  UPDATE articles
   SET likes = likes + 1, updated_at = NOW()
   WHERE id = article_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 创建搜索文章函数（支持分页）
+CREATE OR REPLACE FUNCTION search_articles(
+  search_query TEXT,
+  search_limit INTEGER DEFAULT 20,
+  search_offset INTEGER DEFAULT 0
+)
+RETURNS SETOF articles AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM articles
+  WHERE
+    -- 全文搜索匹配（使用自定义中文配置）
+    to_tsvector('chinese', title || ' ' || summary) @@ plainto_tsquery('chinese', search_query)
+    -- 精确匹配（对中文特别重要）
+    OR title ILIKE '%' || search_query || '%'
+    OR summary ILIKE '%' || search_query || '%'
+    -- 标签匹配
+    OR EXISTS (
+      SELECT 1 FROM unnest(tags) AS tag
+      WHERE tag ILIKE '%' || search_query || '%'
+    )
+  ORDER BY
+    -- 优先级排序：标题匹配 > 全文搜索 > 标签匹配
+    CASE
+      WHEN title ILIKE '%' || search_query || '%' THEN 1
+      WHEN to_tsvector('chinese', title || ' ' || summary) @@ plainto_tsquery('chinese', search_query) THEN 2
+      ELSE 3
+    END,
+    created_at DESC
+  LIMIT search_limit
+  OFFSET search_offset;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 创建搜索结果计数函数
+CREATE OR REPLACE FUNCTION search_articles_count(search_query TEXT)
+RETURNS TABLE(count BIGINT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT COUNT(*)::BIGINT
+  FROM articles
+  WHERE
+    -- 全文搜索匹配（使用自定义中文配置）
+    to_tsvector('chinese', title || ' ' || summary) @@ plainto_tsquery('chinese', search_query)
+    -- 精确匹配（对中文特别重要）
+    OR title ILIKE '%' || search_query || '%'
+    OR summary ILIKE '%' || search_query || '%'
+    -- 标签匹配
+    OR EXISTS (
+      SELECT 1 FROM unnest(tags) AS tag
+      WHERE tag ILIKE '%' || search_query || '%'
+    );
 END;
 $$ LANGUAGE plpgsql;
 

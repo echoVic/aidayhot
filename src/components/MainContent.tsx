@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ArticleService, RealtimeService } from '../lib/database';
+import { useCallback, useEffect, useState } from 'react';
+import { ArticleService, RealtimeService, type PaginatedResult } from '../lib/database';
 import type { Article } from '../lib/supabase';
 import ArticleCard from './ArticleCard';
+import { DataLoadError } from './ErrorBoundary';
+import { ToastContainer, useToast } from './Toast';
 
 interface MainContentProps {
   searchQuery?: string;
@@ -15,52 +17,105 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'trending'>('latest');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    hasMore: false
+  });
+
+  const { toasts, removeToast, showSuccess, showError, showWarning, showInfo } = useToast();
+
+  // 使用常量避免依赖循环
+  const PAGE_SIZE = 20;
 
   // 加载文章数据
+  const loadArticles = useCallback(async (page = 1, append = false, showToast = true) => {
+    try {
+      if (page === 1) {
+        setLoading(true);
+        setError(null);
+      } else {
+        setLoadingMore(true);
+      }
+
+      let result: PaginatedResult<Article>;
+
+      if (searchQuery) {
+        // 搜索文章
+        result = await ArticleService.search(searchQuery, page, PAGE_SIZE);
+      } else if (category && category !== '全部') {
+        // 按分类获取文章
+        result = await ArticleService.getByCategory(category, page, PAGE_SIZE);
+      } else {
+        // 获取所有文章
+        result = await ArticleService.getAll(page, PAGE_SIZE);
+      }
+
+      if (append && page > 1) {
+        setArticles(prev => [...prev, ...result.data]);
+      } else {
+        setArticles(result.data);
+      }
+
+      setPagination({
+        page: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+        hasMore: result.hasMore
+      });
+
+      // 使用回调方式调用 toast 避免依赖循环
+      if (showToast && page === 1 && result.data.length > 0) {
+        setTimeout(() => showSuccess('数据加载成功', `共找到 ${result.total} 篇文章`), 0);
+      }
+
+    } catch (err) {
+      console.error('加载文章失败:', err);
+      const errorMessage = err instanceof Error ? err.message : '加载文章失败，请稍后重试';
+      setError(errorMessage);
+      // 使用回调方式调用 toast 避免依赖循环
+      if (showToast) {
+        setTimeout(() => showError('加载失败', errorMessage), 0);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [searchQuery, category]);
+
+  // 加载更多文章
+  const loadMoreArticles = useCallback(() => {
+    if (!loadingMore && pagination.hasMore) {
+      loadArticles(pagination.page + 1, true);
+    }
+  }, [loadArticles, loadingMore, pagination.hasMore, pagination.page]);
+
+  // 重置并重新加载
+  const resetAndReload = useCallback(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+    loadArticles(1, false);
+  }, [loadArticles]);
+
   useEffect(() => {
-    loadArticles();
-  }, [category, searchQuery]);
+    resetAndReload();
+  }, [category, searchQuery, resetAndReload]);
 
   // 实时订阅文章变化
   useEffect(() => {
     const subscription = RealtimeService.subscribeToArticles((payload) => {
       console.log('文章数据变化:', payload);
-      // 重新加载数据
-      loadArticles();
+      setTimeout(() => showInfo('数据更新', '检测到新内容，正在刷新...'), 0);
+      // 重新加载数据，不显示 toast 避免循环
+      loadArticles(1, false, false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
-
-  const loadArticles = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      let data: Article[] = [];
-      
-      if (searchQuery) {
-        // 搜索文章
-        data = await ArticleService.search(searchQuery);
-      } else if (category && category !== '全部') {
-        // 按分类获取文章
-        data = await ArticleService.getByCategory(category);
-      } else {
-        // 获取所有文章
-        data = await ArticleService.getAll();
-      }
-      
-      setArticles(data || []);
-    } catch (err) {
-      console.error('加载文章失败:', err);
-      setError('加载文章失败，请稍后重试');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadArticles]);
 
   // 排序文章
   const sortedArticles = [...articles].sort((a, b) => {
@@ -77,19 +132,20 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   });
 
   // 处理文章点击（增加浏览量）
-  const handleArticleClick = async (articleId: string) => {
+  const handleArticleClick = useCallback(async (articleId: string) => {
     try {
       await ArticleService.incrementViews(articleId);
       // 更新本地状态
-      setArticles(prev => prev.map(article => 
-        article.id === articleId 
+      setArticles(prev => prev.map(article =>
+        article.id === articleId
           ? { ...article, views: article.views + 1 }
           : article
       ));
     } catch (err) {
       console.error('更新浏览量失败:', err);
+      setTimeout(() => showWarning('操作失败', '无法更新浏览量'), 0);
     }
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -107,30 +163,19 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
     );
   }
 
-  if (error) {
+  if (error && articles.length === 0) {
     return (
       <main className="flex-1 bg-gray-50 p-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">加载失败</h3>
-          <p className="text-gray-500 mb-4">{error}</p>
-          <button 
-            onClick={loadArticles}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            重试
-          </button>
-        </div>
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+        <DataLoadError onRetry={resetAndReload} />
       </main>
     );
   }
 
   return (
     <main className="flex-1 bg-gray-50 p-6">
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+
       {/* 工具栏 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex items-center justify-between">
@@ -139,7 +184,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
               {category ? `${category} 相关文章` : searchQuery ? `搜索结果: "${searchQuery}"` : 'AI每日热点'}
             </h2>
             <span className="text-sm text-gray-500">
-              共 {sortedArticles.length} 篇文章
+              共 {pagination.total} 篇文章 {pagination.total > 0 && `(显示 ${sortedArticles.length} 篇)`}
             </span>
           </div>
           
@@ -251,16 +296,47 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
       )}
 
       {/* 加载更多按钮 */}
-      {sortedArticles.length > 0 && (
+      {sortedArticles.length > 0 && pagination.hasMore && (
         <div className="mt-8 text-center">
-          <button className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center space-x-2">
-            <span>加载更多文章</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
+          <button
+            onClick={loadMoreArticles}
+            disabled={loadingMore}
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center space-x-2"
+          >
+            {loadingMore ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>加载中...</span>
+              </>
+            ) : (
+              <>
+                <span>加载更多文章</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </>
+            )}
           </button>
+
+          <p className="text-sm text-gray-500 mt-2">
+            已显示 {sortedArticles.length} / {pagination.total} 篇文章
+          </p>
+        </div>
+      )}
+
+      {/* 已加载完所有内容的提示 */}
+      {sortedArticles.length > 0 && !pagination.hasMore && pagination.total > pagination.pageSize && (
+        <div className="mt-8 text-center">
+          <div className="inline-flex items-center space-x-2 text-gray-500 text-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span>已显示全部 {pagination.total} 篇文章</span>
+          </div>
         </div>
       )}
     </main>
   );
-} 
+}
