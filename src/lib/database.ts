@@ -1,35 +1,81 @@
 import type { Article, Category } from './supabase'
 import { supabase } from './supabase'
 
+// 分页结果接口
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  hasMore: boolean;
+  page: number;
+  pageSize: number;
+}
+
 // 文章相关操作
 export class ArticleService {
-  // 获取所有文章
-  static async getAll(limit = 50, offset = 0) {
+  // 获取所有文章（带分页）
+  static async getAll(page = 1, pageSize = 20): Promise<PaginatedResult<Article>> {
+    const offset = (page - 1) * pageSize;
+
+    // 获取总数
+    const { count, error: countError } = await supabase
+      .from('articles')
+      .select('*', { count: 'exact', head: true });
+
+    if (countError) throw countError;
+
+    // 获取数据
     const { data, error } = await supabase
       .from('articles')
       .select('*')
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-    
-    if (error) throw error
-    return data
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    const total = count || 0;
+    return {
+      data: data || [],
+      total,
+      hasMore: offset + pageSize < total,
+      page,
+      pageSize
+    };
   }
 
-  // 根据分类获取文章
-  static async getByCategory(category: string, limit = 50, offset = 0) {
+  // 根据分类获取文章（带分页）
+  static async getByCategory(category: string, page = 1, pageSize = 20): Promise<PaginatedResult<Article>> {
     if (category === '全部') {
-      return this.getAll(limit, offset)
+      return this.getAll(page, pageSize);
     }
-    
+
+    const offset = (page - 1) * pageSize;
+
+    // 获取总数
+    const { count, error: countError } = await supabase
+      .from('articles')
+      .select('*', { count: 'exact', head: true })
+      .eq('category', category);
+
+    if (countError) throw countError;
+
+    // 获取数据
     const { data, error } = await supabase
       .from('articles')
       .select('*')
       .eq('category', category)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
-    
-    if (error) throw error
-    return data
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    const total = count || 0;
+    return {
+      data: data || [],
+      total,
+      hasMore: offset + pageSize < total,
+      page,
+      pageSize
+    };
   }
 
   // 获取热门文章
@@ -58,30 +104,67 @@ export class ArticleService {
     return data
   }
 
-  // 搜索文章
-  static async search(query: string, limit = 20) {
-    // 首先尝试使用数据库的高级搜索函数
-    const { data, error } = await supabase
-      .rpc('search_articles', { 
-        search_query: query, 
-        search_limit: limit 
-      })
-    
-    if (error) {
+  // 搜索文章（带分页）
+  static async search(query: string, page = 1, pageSize = 20): Promise<PaginatedResult<Article>> {
+    const offset = (page - 1) * pageSize;
+
+    try {
+      // 首先尝试使用数据库的高级搜索函数
+      const { data, error } = await supabase
+        .rpc('search_articles', {
+          search_query: query,
+          search_limit: pageSize,
+          search_offset: offset
+        });
+
+      if (error) throw error;
+
+      // 获取搜索结果总数（需要单独查询）
+      const { data: countData, error: countError } = await supabase
+        .rpc('search_articles_count', { search_query: query });
+
+      const total = countError ? 0 : (countData?.[0]?.count || 0);
+
+      return {
+        data: data || [],
+        total,
+        hasMore: offset + pageSize < total,
+        page,
+        pageSize
+      };
+    } catch (error) {
       console.warn('高级搜索失败，使用基础搜索:', error);
-      // 如果高级搜索失败，回退到基础的 ILIKE 搜索
+
+      // 回退到基础的 ILIKE 搜索
+      const searchPattern = `%${query}%`;
+
+      // 获取总数
+      const { count, error: countError } = await supabase
+        .from('articles')
+        .select('*', { count: 'exact', head: true })
+        .or(`title.ilike.${searchPattern}, summary.ilike.${searchPattern}`);
+
+      if (countError) throw countError;
+
+      // 获取数据
       const { data: fallbackData, error: fallbackError } = await supabase
         .from('articles')
         .select('*')
-        .or(`title.ilike.%${query}%, summary.ilike.%${query}%`)
+        .or(`title.ilike.${searchPattern}, summary.ilike.${searchPattern}`)
         .order('created_at', { ascending: false })
-        .limit(limit)
-      
-      if (fallbackError) throw fallbackError
-      return fallbackData
+        .range(offset, offset + pageSize - 1);
+
+      if (fallbackError) throw fallbackError;
+
+      const total = count || 0;
+      return {
+        data: fallbackData || [],
+        total,
+        hasMore: offset + pageSize < total,
+        page,
+        pageSize
+      };
     }
-    
-    return data
   }
 
   // 创建文章
