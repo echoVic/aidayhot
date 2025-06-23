@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ArticleService, RealtimeService } from '../lib/database';
+import type { Article } from '../lib/supabase';
 import ArticleCard from './ArticleCard';
-import { mockArticles } from '../data/mockData';
 
 interface MainContentProps {
   searchQuery?: string;
@@ -12,21 +13,57 @@ interface MainContentProps {
 export default function MainContent({ searchQuery, category }: MainContentProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'trending'>('latest');
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 过滤和排序文章
-  const filteredArticles = mockArticles.filter(article => {
-    if (category && category !== '全部') {
-      return article.category === category;
-    }
-    if (searchQuery) {
-      return article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             article.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             article.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    }
-    return true;
-  });
+  // 加载文章数据
+  useEffect(() => {
+    loadArticles();
+  }, [category, searchQuery]);
 
-  const sortedArticles = [...filteredArticles].sort((a, b) => {
+  // 实时订阅文章变化
+  useEffect(() => {
+    const subscription = RealtimeService.subscribeToArticles((payload) => {
+      console.log('文章数据变化:', payload);
+      // 重新加载数据
+      loadArticles();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const loadArticles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let data: Article[] = [];
+      
+      if (searchQuery) {
+        // 搜索文章
+        data = await ArticleService.search(searchQuery);
+      } else if (category && category !== '全部') {
+        // 按分类获取文章
+        data = await ArticleService.getByCategory(category);
+      } else {
+        // 获取所有文章
+        data = await ArticleService.getAll();
+      }
+      
+      setArticles(data || []);
+    } catch (err) {
+      console.error('加载文章失败:', err);
+      setError('加载文章失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 排序文章
+  const sortedArticles = [...articles].sort((a, b) => {
     switch (sortBy) {
       case 'popular':
         return b.views - a.views;
@@ -34,9 +71,63 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
         return b.likes - a.likes;
       case 'latest':
       default:
-        return new Date(b.publishTime).getTime() - new Date(a.publishTime).getTime();
+        return new Date(b.created_at || b.publish_time).getTime() - 
+               new Date(a.created_at || a.publish_time).getTime();
     }
   });
+
+  // 处理文章点击（增加浏览量）
+  const handleArticleClick = async (articleId: string) => {
+    try {
+      await ArticleService.incrementViews(articleId);
+      // 更新本地状态
+      setArticles(prev => prev.map(article => 
+        article.id === articleId 
+          ? { ...article, views: article.views + 1 }
+          : article
+      ));
+    } catch (err) {
+      console.error('更新浏览量失败:', err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="flex-1 bg-gray-50 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-spin">
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">正在加载文章...</h3>
+          <p className="text-gray-500">请稍候</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="flex-1 bg-gray-50 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">加载失败</h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <button 
+            onClick={loadArticles}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            重试
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 bg-gray-50 p-6">
@@ -153,6 +244,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
               key={article.id}
               article={article}
               layout={viewMode}
+              onClick={() => handleArticleClick(article.id)}
             />
           ))}
         </div>

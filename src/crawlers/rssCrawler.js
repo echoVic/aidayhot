@@ -117,17 +117,25 @@ class RSSCrawler {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 获取AI相关的RSS源列表
+  // 获取AI相关的RSS源列表（使用可靠的源）
   getAIRSSFeeds() {
     return {
       'Google AI Blog': 'http://googleaiblog.blogspot.com/atom.xml',
       'OpenAI Blog': 'https://openai.com/blog/rss.xml',
       'Microsoft Research Blog': 'https://www.microsoft.com/en-us/research/feed/',
-      'Towards Data Science': 'https://towardsdatascience.com/feed',
       'KDnuggets': 'https://www.kdnuggets.com/feed',
       'Analytics Vidhya': 'https://www.analyticsvidhya.com/blog/feed/',
-      '机器之心': 'https://www.jiqizhixin.com/rss',
-      '量子位': 'https://www.qbitai.com/feed'
+      'AI News': 'https://artificialintelligence-news.com/feed/',
+      'Synced': 'https://syncedreview.com/feed/',
+      'VentureBeat AI': 'https://venturebeat.com/ai/feed/'
+    };
+  }
+
+  // 获取测试用的RSS源（更可靠）
+  getTestRSSFeeds() {
+    return {
+      'Google AI Blog': 'http://googleaiblog.blogspot.com/atom.xml',
+      'AI News': 'https://artificialintelligence-news.com/feed/'
     };
   }
 

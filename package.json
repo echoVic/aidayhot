@@ -6,9 +6,18 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "node scripts/migrateToSupabase.js",
+    "test-migrate": "node scripts/testMigration.js",
+    "update-schema": "node scripts/updateDatabaseSchema.js",
+    "collect": "node scripts/collectDataToSupabase.js",
+    "collect:test": "node scripts/testCollector.js",
+    "collect:arxiv": "node -e \"require('./scripts/collectDataToSupabase.js').collectArxivPapers()\"",
+    "collect:github": "node -e \"require('./scripts/collectDataToSupabase.js').collectGithubRepos()\"",
+    "collect:rss": "node -e \"require('./scripts/collectDataToSupabase.js').collectRSSFeeds()\""
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
     "axios": "^1.10.0",
     "cheerio": "^1.1.0",
     "googleapis": "^150.0.1",

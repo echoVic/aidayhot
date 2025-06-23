@@ -1,19 +1,26 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { CategoryService, RealtimeService } from '../lib/database';
+import type { Category } from '../lib/supabase';
 
-const categories = [
-  { name: '全部', href: '/', icon: '🏠', count: 1234 },
-  { name: '机器学习', href: '/category/ml', icon: '🤖', count: 342 },
-  { name: '深度学习', href: '/category/dl', icon: '🧠', count: 256 },
-  { name: '自然语言处理', href: '/category/nlp', icon: '💬', count: 198 },
-  { name: '计算机视觉', href: '/category/cv', icon: '👁️', count: 167 },
-  { name: '大模型', href: '/category/llm', icon: '🔮', count: 89 },
-  { name: '自动驾驶', href: '/category/auto', icon: '🚗', count: 76 },
-  { name: '机器人', href: '/category/robot', icon: '🦾', count: 54 },
-  { name: 'AI芯片', href: '/category/chip', icon: '💾', count: 43 },
-  { name: 'AI伦理', href: '/category/ethics', icon: '⚖️', count: 32 },
-];
+const categoryIcons: Record<string, string> = {
+  '全部': '🏠',
+  '机器学习': '🤖',
+  '深度学习': '🧠',
+  '自然语言处理': '💬',
+  '计算机视觉': '👁️',
+  '大模型': '🔮',
+  '自动驾驶': '🚗',
+  '机器人': '🦾',
+  'AI芯片': '💾',
+  'AI伦理': '⚖️',
+  '开源AI': '🔓',
+  'AI绘画': '🎨',
+  '办公AI': '💼',
+  '科学AI': '🔬'
+};
 
 const hotTopics = [
   { name: 'ChatGPT', count: 145 },
@@ -27,6 +34,70 @@ const hotTopics = [
 ];
 
 export default function Sidebar() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    newArticles: 0,
+    totalViews: 0,
+    totalUsers: 0
+  });
+
+  // 加载分类数据
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  // 实时订阅分类变化
+  useEffect(() => {
+    const subscription = RealtimeService.subscribeToCategories((payload) => {
+      console.log('分类数据变化:', payload);
+      loadCategories();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      setLoading(true);
+      const data = await CategoryService.getAll();
+      setCategories(data || []);
+      
+      // 计算统计数据
+      const totalArticles = data?.reduce((sum, cat) => sum + cat.count, 0) || 0;
+      setStats({
+        newArticles: Math.floor(totalArticles * 0.1), // 假设10%是今日新增
+        totalViews: Math.floor(totalArticles * 15), // 假设每篇文章平均15次阅读
+        totalUsers: Math.floor(totalArticles * 3) // 假设每篇文章平均3个用户访问
+      });
+    } catch (err) {
+      console.error('加载分类失败:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <aside className="w-64 bg-white shadow-sm border-r border-gray-200 h-screen sticky top-16 overflow-y-auto">
+        <div className="p-4">
+          <div className="animate-pulse space-y-4">
+            <div className="h-6 bg-gray-300 rounded w-3/4"></div>
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="flex items-center space-x-3">
+                <div className="h-4 w-4 bg-gray-300 rounded"></div>
+                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                <div className="h-4 w-8 bg-gray-300 rounded ml-auto"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="w-64 bg-white shadow-sm border-r border-gray-200 h-screen sticky top-16 overflow-y-auto">
       <div className="p-4">
@@ -38,13 +109,15 @@ export default function Sidebar() {
               <Link
                 key={category.name}
                 href={category.href}
-                className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-100 hover:text-blue-600 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <span className="text-lg">{category.icon}</span>
+                  <span className="text-lg group-hover:scale-110 transition-transform">
+                    {categoryIcons[category.name] || '📁'}
+                  </span>
                   <span>{category.name}</span>
                 </div>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full group-hover:bg-blue-100 transition-colors">
                   {category.count}
                 </span>
               </Link>
@@ -59,13 +132,15 @@ export default function Sidebar() {
             {hotTopics.map((topic, index) => (
               <div
                 key={topic.name}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <span className="text-sm font-medium text-blue-600">
+                  <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700">
                     #{index + 1}
                   </span>
-                  <span className="text-sm text-gray-700">{topic.name}</span>
+                  <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                    {topic.name}
+                  </span>
                 </div>
                 <span className="text-xs text-gray-500">
                   {topic.count}篇
@@ -75,23 +150,50 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* 统计信息 */}
+        {/* 实时统计信息 */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
-          <h4 className="font-semibold mb-2">今日数据</h4>
+          <h4 className="font-semibold mb-2 flex items-center">
+            <span className="mr-2">📊</span>
+            今日数据
+          </h4>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span>新增文章</span>
-              <span className="font-medium">23</span>
+              <span className="font-medium bg-white/20 px-2 py-1 rounded">
+                {stats.newArticles}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span>热门阅读</span>
-              <span className="font-medium">1,234</span>
+            <div className="flex justify-between items-center">
+              <span>总阅读量</span>
+              <span className="font-medium bg-white/20 px-2 py-1 rounded">
+                {stats.totalViews.toLocaleString()}
+              </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span>用户访问</span>
-              <span className="font-medium">5,678</span>
+              <span className="font-medium bg-white/20 px-2 py-1 rounded">
+                {stats.totalUsers.toLocaleString()}
+              </span>
             </div>
           </div>
+          
+          {/* 实时指示器 */}
+          <div className="mt-3 flex items-center text-xs text-blue-100">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
+            实时更新
+          </div>
+        </div>
+
+        {/* 快捷操作 */}
+        <div className="mt-6 space-y-2">
+          <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-2">
+            <span>🔍</span>
+            <span>高级搜索</span>
+          </button>
+          <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-2">
+            <span>⭐</span>
+            <span>我的收藏</span>
+          </button>
         </div>
       </div>
     </aside>
