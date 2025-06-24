@@ -36,17 +36,19 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
       
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'pnpm'
       
       - name: 安装依赖
-        run: |
-          npm ci
-          # 安装运行时需要的额外依赖
-          npm install axios cheerio rss-parser
+        run: pnpm install
       
       - name: 配置环境变量
         run: |
