@@ -219,7 +219,7 @@ jobs:
       
       - name: 上传数据收集日志
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: collection-log-${{ matrix.source }}
           path: collection_log.txt
@@ -246,7 +246,7 @@ jobs:
     
     steps:
       - name: 下载所有日志
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: logs/
       
