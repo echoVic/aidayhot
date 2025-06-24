@@ -55,10 +55,63 @@ on:
           - 'self-hosted'
 
 jobs:
+  # 准备阶段：解析数据源
+  prepare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      sources: ${{ steps.parse-sources.outputs.sources }}
+    
+    steps:
+      - name: 解析数据源
+        id: parse-sources
+        run: |
+          SOURCES_INPUT="${{ github.event.inputs.sources || 'all' }}"
+          echo "输入的数据源: $SOURCES_INPUT"
+          
+          if [ "$SOURCES_INPUT" = "all" ]; then
+            # 拆分所有可用数据源
+            ALL_SOURCES=("arxiv" "github" "rss" "papers-with-code" "stackoverflow")
+            SOURCES_JSON="["
+            for i in "${!ALL_SOURCES[@]}"; do
+              if [ $i -gt 0 ]; then
+                SOURCES_JSON+=","
+              fi
+              SOURCES_JSON+="\"${ALL_SOURCES[$i]}\""
+            done
+            SOURCES_JSON+="]"
+            
+            echo "sources=$SOURCES_JSON" >> $GITHUB_OUTPUT
+            echo "使用 Matrix 模式处理所有数据源: $SOURCES_JSON"
+          else
+            # 拆分指定的多个数据源
+            IFS=',' read -ra SOURCE_ARRAY <<< "$SOURCES_INPUT"
+            SOURCES_JSON="["
+            for i in "${!SOURCE_ARRAY[@]}"; do
+              SOURCE=$(echo "${SOURCE_ARRAY[$i]}" | xargs)  # 去除空格
+              if [ $i -gt 0 ]; then
+                SOURCES_JSON+=","
+              fi
+              SOURCES_JSON+="\"$SOURCE\""
+            done
+            SOURCES_JSON+="]"
+            
+            echo "sources=$SOURCES_JSON" >> $GITHUB_OUTPUT
+            echo "使用 Matrix 模式处理指定数据源: $SOURCES_JSON"
+          fi
+
+  # 数据收集任务
   collect-data:
+    needs: prepare
     # 动态选择 runner 类型
     runs-on: ${{ github.event.inputs.runner_type == 'self-hosted' && 'self-hosted' || 'ubuntu-22.04' }}
-    timeout-minutes: 25    # 稍微减少超时时间，更快检测问题
+    timeout-minutes: 20    # 单个数据源超时时间减少
+    
+    # 动态 matrix 策略
+    strategy:
+      fail-fast: ${{ github.event.inputs.continue_on_error != 'true' }}
+      matrix:
+        source: ${{ fromJson(needs.prepare.outputs.sources) }}
     
     # 添加环境优化
     env:
@@ -101,12 +154,14 @@ jobs:
         run: |
           echo "NODE_ENV=production" >> $GITHUB_ENV
           echo "TZ=Asia/Shanghai" >> $GITHUB_ENV
+          echo "CURRENT_SOURCE=${{ matrix.source }}" >> $GITHUB_ENV
       
       - name: 环境信息
         run: |
           echo "Node.js: $(node --version)"
           echo "pnpm: $(pnpm --version)"
           echo "系统: $(uname -r)"
+          echo "当前处理数据源: ${{ matrix.source }}"
       
       - name: 验证环境变量
         run: |
@@ -121,20 +176,19 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
       
-      - name: 运行数据收集
+      - name: 运行数据收集 - ${{ matrix.source }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          echo "开始运行数据收集..."
+          echo "开始运行数据收集 - 数据源: ${{ matrix.source }}"
           
           # 构建命令参数
-          SOURCES="${{ github.event.inputs.sources || 'all' }}"
+          CURRENT_SOURCE="${{ matrix.source }}"
           USE_SOURCE_CONFIG="${{ github.event.inputs.use_source_config || 'true' }}"
           MAX_RESULTS="${{ github.event.inputs.max_results || '10' }}"
-          CONTINUE_ON_ERROR="${{ github.event.inputs.continue_on_error || 'true' }}"
           
           # 查找编译后的脚本文件
           SCRIPT_FILE=$(find dist/scripts/ -name "collectDataToSupabase.js" -type f | head -1)
@@ -147,8 +201,8 @@ jobs:
           echo "✅ 找到脚本文件: $SCRIPT_FILE"
           
           CMD="node $SCRIPT_FILE"
-          CMD="$CMD --sources=$SOURCES"
-          CMD="$CMD --timeout=25"
+          CMD="$CMD --sources=$CURRENT_SOURCE"
+          CMD="$CMD --timeout=20"
           CMD="$CMD --verbose"
           
           if [ "$USE_SOURCE_CONFIG" = "true" ]; then
@@ -157,21 +211,70 @@ jobs:
             CMD="$CMD --max-results=$MAX_RESULTS"
           fi
           
-          if [ "$CONTINUE_ON_ERROR" = "true" ]; then
-            CMD="$CMD --continue-on-error"
-          fi
+          # 单个数据源失败不影响其他源（通过 strategy.fail-fast 控制）
+          CMD="$CMD --continue-on-error"
           
           echo "执行命令: $CMD"
           eval $CMD
       
-      - name: 任务完成状态
+      - name: 上传数据收集日志
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: collection-log-${{ matrix.source }}
+          path: collection_log.txt
+          retention-days: 7
+      
+      - name: 任务完成状态 - ${{ matrix.source }}
         if: always()
         run: |
-          echo "=== 任务执行完成 ==="
+          echo "=== 数据源 ${{ matrix.source }} 执行完成 ==="
           echo "完成时间: $(date '+%Y-%m-%d %H:%M:%S %Z')"
           echo "触发方式: ${{ github.event_name }}"
           
           if [ -f collection_log.txt ]; then
             echo "收集结果概览:"
             tail -10 collection_log.txt
+          fi
+
+  # 汇总任务
+  summary:
+    needs: [prepare, collect-data]
+    runs-on: ubuntu-22.04
+    if: always()
+    timeout-minutes: 5
+    
+    steps:
+      - name: 下载所有日志
+        uses: actions/download-artifact@v3
+        with:
+          path: logs/
+      
+      - name: 生成执行汇总
+        run: |
+          echo "=== AI 日报数据收集执行汇总 ==="
+          echo "执行时间: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "触发方式: ${{ github.event_name }}"
+          echo "处理的数据源: ${{ needs.prepare.outputs.sources }}"
+          echo "执行模式: Matrix 并行处理"
+          echo ""
+          
+          # 统计各数据源执行结果
+          if [ -d "logs" ]; then
+            echo "各数据源执行结果:"
+            for log_dir in logs/collection-log-*/; do
+              if [ -d "$log_dir" ]; then
+                source_name=$(basename "$log_dir" | sed 's/collection-log-//')
+                echo "📊 数据源: $source_name"
+                if [ -f "$log_dir/collection_log.txt" ]; then
+                  echo "   最后几行日志:"
+                  tail -3 "$log_dir/collection_log.txt" | sed 's/^/   /'
+                else
+                  echo "   ❌ 未找到日志文件"
+                fi
+                echo ""
+              fi
+            done
+          else
+            echo "未找到日志目录"
           fi 
