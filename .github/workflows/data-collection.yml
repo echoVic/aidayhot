@@ -69,14 +69,15 @@ jobs:
       - name: 安装依赖
         run: pnpm install
       
-      - name: 编译 TypeScript 爬虫
+      - name: 编译 TypeScript 脚本
         run: |
           echo "开始编译 TypeScript 文件..."
           rm -rf dist/scripts/
           mkdir -p dist/scripts/
           npx tsc scripts/collectDataToSupabase.ts --outDir dist/scripts --module commonjs --target es2020 --esModuleInterop true --allowSyntheticDefaultImports true --skipLibCheck true --declaration false
           echo "编译完成"
-          ls -la dist/scripts/scripts/
+          echo "检查编译输出:"
+          find dist/scripts/ -name "*.js" -type f
       
       - name: 配置环境变量
         run: |
@@ -111,7 +112,17 @@ jobs:
           MAX_RESULTS="${{ github.event.inputs.max_results || '10' }}"
           CONTINUE_ON_ERROR="${{ github.event.inputs.continue_on_error || 'true' }}"
           
-          CMD="node dist/scripts/scripts/collectDataToSupabase.js"
+          # 查找编译后的脚本文件
+          SCRIPT_FILE=$(find dist/scripts/ -name "collectDataToSupabase.js" -type f | head -1)
+          
+          if [ -z "$SCRIPT_FILE" ]; then
+            echo "❌ 未找到编译后的脚本文件"
+            exit 1
+          fi
+          
+          echo "✅ 找到脚本文件: $SCRIPT_FILE"
+          
+          CMD="node $SCRIPT_FILE"
           CMD="$CMD --sources=$SOURCES"
           CMD="$CMD --timeout=25"
           CMD="$CMD --verbose"
@@ -162,6 +173,7 @@ jobs:
           echo "### 📝 详细日志" >> report.md
           echo "请查看 GitHub Actions 日志获取完整的执行详情" >> report.md
           
+          echo "✅ 报告生成完成"
           cat report.md
       
       - name: 检查数据收集结果
