@@ -245,7 +245,8 @@ async function collectData() {
                                     publishedDate: paper.published.toISOString(),
                                     category: category,
                                     tags: paper.categories || [],
-                                    source: 'arxiv'
+                                    source: 'arxiv',
+                                    arxivId: paper.id // 添加 ArXiv ID
                                 })));
                             }
                         }
@@ -262,7 +263,8 @@ async function collectData() {
                                 publishedDate: repo.publishedAt,
                                 category: 'GitHub项目',
                                 tags: repo.topics || [],
-                                source: 'github'
+                                source: 'github',
+                                repoId: repo.id // 添加 GitHub 仓库 ID
                             }));
                         }
                         break;
@@ -335,21 +337,39 @@ async function collectData() {
                             if (Date.now() - startTime > timeoutMs) {
                                 throw new Error('执行超时');
                             }
+                            // 生成唯一的内容ID和文章ID
+                            const contentId = `${item.source}_${encodeURIComponent(item.url)}`;
+                            const articleId = `${item.source}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                            // 准备基础数据
+                            const articleData = {
+                                id: articleId,
+                                title: item.title,
+                                summary: item.description || '',
+                                category: item.category || 'general',
+                                author: item.author || '',
+                                publish_time: item.publishedDate ? new Date(item.publishedDate).toISOString() : new Date().toISOString(),
+                                source_url: item.url,
+                                source_type: item.source,
+                                content_id: contentId,
+                                tags: item.tags || [],
+                                is_new: true,
+                                is_hot: false,
+                                views: 0,
+                                likes: 0,
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
+                            };
+                            // 为特定源添加额外字段
+                            if (item.source === 'arxiv' && item.arxivId) {
+                                articleData.arxiv_id = item.arxivId;
+                            }
+                            if (item.source === 'github' && item.repoId) {
+                                articleData.repo_id = item.repoId;
+                            }
                             const { error } = await supabase
                                 .from('articles')
-                                .upsert([{
-                                    title: item.title,
-                                    url: item.url,
-                                    description: item.description || '',
-                                    source: item.source,
-                                    category: item.category || 'general',
-                                    author: item.author || '',
-                                    published_date: item.publishedDate || new Date().toISOString(),
-                                    tags: item.tags || [],
-                                    created_at: new Date().toISOString(),
-                                    updated_at: new Date().toISOString()
-                                }], {
-                                onConflict: 'url'
+                                .upsert([articleData], {
+                                onConflict: 'content_id' // 使用 content_id 来避免重复内容
                             });
                             if (error) {
                                 throw error;

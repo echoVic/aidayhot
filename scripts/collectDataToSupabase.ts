@@ -181,17 +181,46 @@ async function collectData(): Promise<void> {
     
     try {
       if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-        supabase = createClient(
-          process.env.SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
-        );
-        canSaveToDatabase = true;
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+        
+        log(`Supabase URL: ${supabaseUrl}`, 'info');
+        log(`使用的密钥类型: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' : 'ANON_KEY'}`, 'info');
+        
+        supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // 测试连接
+        try {
+          const { data, error } = await supabase.from('articles').select('count').limit(1);
+          if (error) {
+            log(`数据库连接测试失败: ${error.message}`, 'error');
+            if (options.verbose) {
+              log(`连接错误详情: ${JSON.stringify(error)}`, 'error');
+            }
+            throw error;
+          }
+          log('数据库连接测试成功', 'success');
+          canSaveToDatabase = true;
+        } catch (connError) {
+          log(`数据库连接失败: ${connError instanceof Error ? connError.message : 'Unknown connection error'}`, 'error');
+          if (!options.continueOnError) {
+            throw connError;
+          }
+          log('继续执行爬虫测试（跳过数据保存）...', 'info');
+        }
+        
         log('Supabase 客户端初始化成功', 'success');
       } else {
         log('Supabase 环境变量缺失，将只运行爬虫测试', 'info');
+        log(`SUPABASE_URL: ${process.env.SUPABASE_URL ? '已设置' : '未设置'}`, 'info');
+        log(`SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY ? '已设置' : '未设置'}`, 'info');
+        log(`SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? '已设置' : '未设置'}`, 'info');
       }
     } catch (error) {
       log(`Supabase 初始化失败: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      if (options.verbose) {
+        log(`初始化错误详情: ${JSON.stringify(error)}`, 'error');
+      }
       if (!options.continueOnError) {
         throw error;
       }
@@ -411,19 +440,68 @@ async function collectData(): Promise<void> {
               // 为特定源添加额外字段
               if (item.source === 'arxiv' && (item as any).arxivId) {
                 articleData.arxiv_id = (item as any).arxivId;
+                if (options.verbose) {
+                  log(`${source}: 添加ArXiv ID: ${(item as any).arxivId}`, 'info');
+                }
               }
               if (item.source === 'github' && (item as any).repoId) {
                 articleData.repo_id = (item as any).repoId;
+                if (options.verbose) {
+                  log(`${source}: 添加GitHub仓库ID: ${(item as any).repoId}`, 'info');
+                }
               }
 
-              const { error } = await supabase
+              // 数据验证
+              const requiredFields = ['id', 'title', 'source_url', 'source_type', 'content_id'];
+              const missingFields = requiredFields.filter(field => !articleData[field]);
+              if (missingFields.length > 0) {
+                log(`${source}: 数据验证失败，缺少必需字段: ${missingFields.join(', ')}`, 'error');
+                if (options.verbose) {
+                  log(`完整数据: ${JSON.stringify(articleData, null, 2)}`, 'error');
+                }
+                throw new Error(`缺少必需字段: ${missingFields.join(', ')}`);
+              }
+
+              // 检查字符串长度
+              if (articleData.title.length > 500) {
+                articleData.title = articleData.title.substring(0, 497) + '...';
+                log(`${source}: 标题过长，已截断`, 'info');
+              }
+              if (articleData.summary && articleData.summary.length > 2000) {
+                articleData.summary = articleData.summary.substring(0, 1997) + '...';
+                log(`${source}: 摘要过长，已截断`, 'info');
+              }
+
+              // 详细调试信息
+              if (options.verbose) {
+                log(`${source}: 准备保存文章数据: ${JSON.stringify({
+                  id: articleData.id,
+                  title: articleData.title.substring(0, 50) + '...',
+                  content_id: articleData.content_id,
+                  source_type: articleData.source_type
+                })}`, 'info');
+              }
+
+              const { data, error } = await supabase
                 .from('articles')
                 .upsert([articleData], {
                   onConflict: 'content_id'  // 使用 content_id 来避免重复内容
-                });
+                })
+                .select();
 
               if (error) {
+                // 详细的错误信息
+                log(`${source}: Supabase错误详情:`, 'error');
+                log(`  - 错误代码: ${error.code}`, 'error');
+                log(`  - 错误消息: ${error.message}`, 'error');
+                log(`  - 错误详情: ${JSON.stringify(error.details)}`, 'error');
+                log(`  - 错误提示: ${error.hint}`, 'error');
+                log(`  - 尝试插入的数据: ${JSON.stringify(articleData, null, 2)}`, 'error');
                 throw error;
+              }
+
+              if (options.verbose && data) {
+                log(`${source}: 数据库返回: ${JSON.stringify(data)}`, 'info');
               }
 
               sourceStats.success++;
@@ -437,8 +515,31 @@ async function collectData(): Promise<void> {
               stats.errors++;
               stats.saveErrors++;
               
+              // 详细错误日志
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              log(`${source}: 保存文章失败 - ${errorMessage}`, 'error');
+              
               if (options.verbose) {
-                log(`${source}: 保存文章失败 - ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+                log(`${source}: 失败文章标题: "${item.title}"`, 'error');
+                log(`${source}: 失败文章URL: ${item.url}`, 'error');
+                log(`${source}: 错误堆栈: ${error instanceof Error ? error.stack : 'No stack trace'}`, 'error');
+                
+                // 如果是 Supabase 错误，显示更多信息
+                if (error && typeof error === 'object' && 'code' in error) {
+                  log(`${source}: 错误可能的解决方案:`, 'error');
+                  const code = (error as any).code;
+                  if (code === '23505') {
+                    log(`  - 唯一约束冲突，可能是重复数据`, 'error');
+                  } else if (code === '23502') {
+                    log(`  - 非空约束违反，检查必需字段`, 'error');
+                  } else if (code === '23503') {
+                    log(`  - 外键约束违反，检查分类是否存在`, 'error');
+                  } else if (code === 'PGRST116') {
+                    log(`  - 权限问题，检查RLS策略`, 'error');
+                  } else {
+                    log(`  - 未知错误代码: ${code}`, 'error');
+                  }
+                }
               }
               
               // 如果不是 continue-on-error 模式，在连续多次保存失败时停止
