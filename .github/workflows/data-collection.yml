@@ -21,8 +21,16 @@ on:
           - papers-with-code
           - stackoverflow
           - rss
+      use_smart_config:
+        description: '使用智能源配置 (推荐)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
       max_results:
-        description: '每个源的最大结果数'
+        description: '统一最大结果数 (仅当关闭智能配置时使用)'
         required: false
         default: '10'
         type: string
@@ -62,11 +70,18 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          node scripts/collectDataToSupabase.js \
-            --sources="${{ github.event.inputs.sources || 'all' }}" \
-            --max-results="${{ github.event.inputs.max_results || '10' }}" \
-            --timeout=25 \
-            --verbose
+          if [ "${{ github.event.inputs.use_smart_config || 'true' }}" = "true" ]; then
+            node scripts/collectDataToSupabase.js \
+              --sources="${{ github.event.inputs.sources || 'all' }}" \
+              --timeout=25 \
+              --verbose
+          else
+            node scripts/collectDataToSupabase.js \
+              --sources="${{ github.event.inputs.sources || 'all' }}" \
+              --max-results="${{ github.event.inputs.max_results || '10' }}" \
+              --timeout=25 \
+              --verbose
+          fi
       
       - name: 生成执行报告
         if: always()
@@ -77,7 +92,10 @@ jobs:
           echo "**触发方式**: ${{ github.event_name }}" >> report.md
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "**指定源**: ${{ github.event.inputs.sources || 'all' }}" >> report.md
-            echo "**最大结果数**: ${{ github.event.inputs.max_results || '10' }}" >> report.md
+            echo "**智能配置**: ${{ github.event.inputs.use_smart_config || 'true' }}" >> report.md
+            if [ "${{ github.event.inputs.use_smart_config || 'true' }}" = "false" ]; then
+              echo "**统一结果数**: ${{ github.event.inputs.max_results || '10' }}" >> report.md
+            fi
           fi
           echo "**执行状态**: ${{ job.status }}" >> report.md
           echo "" >> report.md

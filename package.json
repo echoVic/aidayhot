@@ -13,7 +13,11 @@
     "collect-data": "node scripts/collectDataToSupabase.js",
     "collect-data-verbose": "node scripts/collectDataToSupabase.js --verbose",
     "test-arxiv": "node scripts/collectDataToSupabase.js --sources=arxiv --max-results=5 --verbose",
-    "test-github": "node scripts/collectDataToSupabase.js --sources=github --max-results=3 --verbose",
+    "test-github": "node scripts/collectDataToSupabase.js --sources=github --max-results=5 --verbose",
+    "test-rss": "node scripts/collectDataToSupabase.js --sources=rss --max-results=10 --verbose",
+    "test-crawler-functions": "node scripts/test-crawler-functions.js",
+    "test-data-logic": "node scripts/test-data-collection-logic.js",
+    "test-stable-sources": "node scripts/collectDataToSupabase.js --sources=arxiv,github,rss --uniform-config --max-results=3 --verbose",
     "test-github-actions": "node scripts/test-github-actions.js"
   },
   "dependencies": {

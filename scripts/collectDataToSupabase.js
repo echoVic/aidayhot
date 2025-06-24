@@ -1,14 +1,54 @@
 const fs = require('fs');
 const path = require('path');
 
+// 🎯 各数据源的智能配置 - 根据测试结果调整
+const SOURCE_CONFIGS = {
+  'arxiv': { 
+    maxResults: 18,        // ✅ 工作正常 - 学术论文，质量高
+    timeout: 10,
+    priority: 'high',
+    status: 'working',
+    description: '📚 学术论文 - 高质量研究内容'
+  },
+  'github': { 
+    maxResults: 12,        // ✅ 工作正常 - 开源项目
+    timeout: 10,
+    priority: 'high',
+    status: 'working',
+    description: '🐙 开源项目 - 热门AI/ML项目'
+  },
+  'rss': { 
+    maxResults: 25,        // ⚠️ 部分RSS源可能不稳定，但总体可用
+    timeout: 12,
+    priority: 'high',
+    status: 'partial',     // 使用更可靠的RSS源
+    description: '📰 技术博客 - 丰富的技术观点和趋势'
+  },
+  'papers-with-code': { 
+    maxResults: 5,         // ❌ API不稳定 - 减少依赖
+    timeout: 8,
+    priority: 'low',
+    status: 'unstable',
+    description: '🔬 ML论文+代码 - 实用研究 (备用)'
+  },
+  'stackoverflow': { 
+    maxResults: 5,         // ❌ API问题 - 减少依赖
+    timeout: 6,
+    priority: 'low',
+    status: 'unstable',
+    description: '💬 技术问答 - 精选高质量问题 (备用)'
+  }
+};
+
 // 解析命令行参数
 function parseArgs() {
   const args = process.argv.slice(2);
   const options = {
     sources: 'all',
-    maxResults: 10,
+    maxResults: null, // 使用源配置的默认值
     timeout: 25,
-    verbose: false
+    verbose: false,
+    useSourceConfig: true
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -17,10 +57,13 @@ function parseArgs() {
       options.sources = arg.split('=')[1];
     } else if (arg.startsWith('--max-results=')) {
       options.maxResults = parseInt(arg.split('=')[1]);
+      options.useSourceConfig = false;
     } else if (arg.startsWith('--timeout=')) {
       options.timeout = parseInt(arg.split('=')[1]);
     } else if (arg === '--verbose') {
       options.verbose = true;
+    } else if (arg === '--uniform-config') {
+      options.useSourceConfig = false;
     }
   }
 
@@ -35,7 +78,6 @@ function log(message, type = 'info') {
   
   console.log(logMessage);
   
-  // 写入日志文件
   try {
     fs.appendFileSync('collection_log.txt', logMessage + '\n');
   } catch (error) {
@@ -66,7 +108,6 @@ async function collectData() {
   };
 
   try {
-    // 设置超时
     const timeoutMs = options.timeout * 1000;
     const startTime = Date.now();
     
@@ -75,7 +116,6 @@ async function collectData() {
     // 动态导入模块
     const { createClient } = await import('@supabase/supabase-js');
     
-    // 初始化 Supabase 客户端
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
@@ -88,6 +128,17 @@ async function collectData() {
     const targetSources = options.sources === 'all' ? allSources : [options.sources];
     
     log(`目标爬取源: ${targetSources.join(', ')}`, 'info');
+
+    // 显示智能配置信息
+    if (options.useSourceConfig) {
+      log('使用智能源配置:', 'info');
+      targetSources.forEach(source => {
+        const config = SOURCE_CONFIGS[source];
+        if (config) {
+          log(`  ${source}: ${config.maxResults}篇 - ${config.description}`, 'info');
+        }
+      });
+    }
 
     // 导入爬虫模块
     const crawlers = {};
@@ -126,27 +177,150 @@ async function collectData() {
     }
 
     // 并发执行爬取任务
-    const crawlerPromises = Object.entries(crawlers).map(async ([source, crawler]) => {
+    const crawlerPromises = Object.entries(crawlers).map(async ([source, CrawlerClass]) => {
       const sourceStats = { total: 0, success: 0, errors: 0 };
       stats.sources[source] = sourceStats;
       
       try {
-        log(`开始爬取 ${source}`, 'info');
+        // 获取该源的配置
+        const sourceConfig = SOURCE_CONFIGS[source];
+        const maxResults = options.useSourceConfig && sourceConfig 
+          ? sourceConfig.maxResults 
+          : (options.maxResults || 10);
+
+        log(`开始爬取 ${source} (${maxResults}篇)`, 'info');
         
-        // 执行爬取
+        // 创建爬虫实例
+        const crawler = new CrawlerClass();
         let results = [];
-        if (typeof crawler.crawlArxiv === 'function') {
-          results = await crawler.crawlArxiv({ maxResults: options.maxResults });
-        } else if (typeof crawler.crawlGitHub === 'function') {
-          results = await crawler.crawlGitHub({ maxResults: options.maxResults });
-        } else if (typeof crawler.crawlPapersWithCode === 'function') {
-          results = await crawler.crawlPapersWithCode({ maxResults: options.maxResults });
-        } else if (typeof crawler.crawlStackOverflow === 'function') {
-          results = await crawler.crawlStackOverflow({ maxResults: options.maxResults });
-        } else if (typeof crawler.crawlRSS === 'function') {
-          results = await crawler.crawlRSS({ maxResults: options.maxResults });
-        } else {
-          throw new Error(`未找到 ${source} 的爬取函数`);
+
+        // 根据不同源调用对应的方法
+        switch (source) {
+          case 'arxiv':
+            const arxivResults = await crawler.fetchLatestAIPapers(maxResults);
+            // 展平多个分类的结果
+            for (const [category, result] of Object.entries(arxivResults)) {
+              if (result.success && result.papers) {
+                results.push(...result.papers.slice(0, Math.ceil(maxResults / 5)).map(paper => ({
+                  title: paper.title,
+                  url: paper.originalUrl,
+                  description: paper.summary,
+                  author: paper.authors.join(', '),
+                  publishedDate: paper.published.toISOString(),
+                  category: category,
+                  tags: paper.categories || []
+                })));
+              }
+            }
+            break;
+
+          case 'github':
+            // GitHub 爬虫需要特定的搜索查询
+            const githubResult = await crawler.searchRepositories('machine learning', 'stars', 'desc', maxResults);
+            if (githubResult.success && githubResult.repositories) {
+              results = githubResult.repositories.map(repo => ({
+                title: repo.fullName,
+                url: repo.originalUrl,
+                description: repo.content || repo.description || '',
+                author: repo.owner.login,
+                publishedDate: repo.publishedAt,
+                category: 'GitHub项目',
+                tags: repo.topics || []
+              }));
+            }
+            break;
+
+          case 'papers-with-code':
+            try {
+              const pwcResult = await crawler.searchPapers('machine learning', maxResults);
+              if (pwcResult.success && pwcResult.papers && pwcResult.papers.length > 0) {
+                results = pwcResult.papers.map(paper => ({
+                  title: paper.title,
+                  url: paper.originalUrl,
+                  description: paper.abstract || paper.summary || '',
+                  author: paper.authors || '',
+                  publishedDate: paper.publishedAt || new Date().toISOString(),
+                  category: 'Papers with Code',
+                  tags: paper.categories || []
+                }));
+                log(`Papers with Code: 成功获取 ${results.length} 篇论文`, 'success');
+              } else {
+                log(`Papers with Code: API返回空结果，跳过`, 'info');
+                results = [];
+              }
+            } catch (error) {
+              log(`Papers with Code: API不稳定，跳过 - ${error.message}`, 'error');
+              results = []; // 失败时返回空数组，不影响其他爬虫
+            }
+            break;
+
+          case 'stackoverflow':
+            try {
+              const soResult = await crawler.searchQuestions('machine learning', 'votes', maxResults);
+              if (soResult.success && soResult.questions && soResult.questions.length > 0) {
+                results = soResult.questions.map(question => ({
+                  title: question.title,
+                  url: question.originalUrl,
+                  description: question.content || question.excerpt || '',
+                  author: question.owner.displayName || '',
+                  publishedDate: question.creationDate || new Date().toISOString(),
+                  category: 'Stack Overflow',
+                  tags: question.tags || []
+                }));
+                log(`Stack Overflow: 成功获取 ${results.length} 个问题`, 'success');
+              } else {
+                log(`Stack Overflow: API返回空结果，跳过`, 'info');
+                results = [];
+              }
+            } catch (error) {
+              log(`Stack Overflow: API限制，跳过 - ${error.message}`, 'error');
+              results = []; // 失败时返回空数组，不影响其他爬虫
+            }
+            break;
+
+          case 'rss':
+            // 使用更可靠的RSS源列表
+            const reliableRSSFeeds = {
+              'Google AI Blog': 'http://googleaiblog.blogspot.com/atom.xml',
+              'OpenAI Blog': 'https://openai.com/blog/rss.xml',
+              'KDnuggets': 'https://www.kdnuggets.com/feed',
+              'Analytics Vidhya': 'https://www.analyticsvidhya.com/blog/feed/'
+            };
+            
+            // 逐个处理RSS源，增加容错性
+            for (const [feedName, feedUrl] of Object.entries(reliableRSSFeeds)) {
+              try {
+                const rssResult = await crawler.fetchRSSFeed(feedUrl);
+                if (rssResult.success && rssResult.items) {
+                  const feedItems = rssResult.items.slice(0, Math.ceil(maxResults / Object.keys(reliableRSSFeeds).length));
+                  const mappedItems = feedItems.map(item => ({
+                    title: item.title,
+                    url: item.originalUrl || item.link,
+                    description: item.content || item.contentSnippet || '',
+                    author: item.author || feedName,
+                    publishedDate: item.publishedAt ? item.publishedAt.toISOString() : new Date().toISOString(),
+                    category: `RSS-${feedName}`,
+                    tags: item.metadata?.categories || []
+                  }));
+                  results.push(...mappedItems);
+                  
+                  if (options.verbose) {
+                    log(`RSS ${feedName}: 获取 ${mappedItems.length} 篇文章`, 'success');
+                  }
+                } else {
+                  log(`RSS ${feedName}: 获取失败 - ${rssResult.error}`, 'error');
+                }
+              } catch (error) {
+                log(`RSS ${feedName}: 处理失败 - ${error.message}`, 'error');
+              }
+              
+              // 延迟避免频繁请求
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            break;
+
+          default:
+            throw new Error(`未支持的爬虫源: ${source}`);
         }
 
         sourceStats.total = results.length;
@@ -159,7 +333,6 @@ async function collectData() {
         // 将数据存储到 Supabase
         for (const item of results) {
           try {
-            // 检查超时
             if (Date.now() - startTime > timeoutMs) {
               throw new Error('执行超时');
             }
@@ -208,7 +381,6 @@ async function collectData() {
       }
     });
 
-    // 等待所有爬虫完成
     await Promise.allSettled(crawlerPromises);
 
     // 输出最终统计
@@ -223,21 +395,42 @@ async function collectData() {
     log('', 'info');
     
     // 按源统计
+    log('📊 各源收集统计:', 'info');
     for (const [source, sourceStats] of Object.entries(stats.sources)) {
-      log(`${source}: ${sourceStats.success}/${sourceStats.total} 成功`, 'info');
+      const config = SOURCE_CONFIGS[source];
+      const configInfo = config ? ` (配置:${config.maxResults})` : '';
+      log(`${source}: ${sourceStats.success}/${sourceStats.total} 成功${configInfo}`, 'info');
     }
 
     // 写入最终统计到文件
     const finalStats = `
+🎯 AI日报数据收集统计
+
 执行时间: ${duration} 秒
 总文章数: ${stats.total}
 成功保存: ${stats.success}
 失败数: ${stats.errors}
 
-按源统计:
-${Object.entries(stats.sources).map(([source, sourceStats]) => 
-  `${source}: ${sourceStats.success}/${sourceStats.total} 成功`
-).join('\n')}
+📊 各源详细统计:
+${Object.entries(stats.sources).map(([source, sourceStats]) => {
+  const config = SOURCE_CONFIGS[source];
+  return `${source}: ${sourceStats.success}/${sourceStats.total} 成功 (配置:${config?.maxResults || 'N/A'}) - ${config?.description || ''}`;
+}).join('\n')}
+
+📈 每日预期收集量 (早晚各一次):
+${Object.entries(SOURCE_CONFIGS).map(([source, config]) => {
+  const status = config.status === 'working' ? '✅' : config.status === 'partial' ? '⚠️' : '❌';
+  return `${status} ${source}: ${config.maxResults} × 2 = ${config.maxResults * 2}篇/天 (${config.status})`;
+}).join('\n')}
+
+🎯 可靠源总预期: ${Object.values(SOURCE_CONFIGS)
+  .filter(config => config.status === 'working' || config.status === 'partial')
+  .reduce((sum, config) => sum + config.maxResults * 2, 0)}篇/天
+
+📊 按优先级分布:
+- 高优先级: ${Object.values(SOURCE_CONFIGS).filter(c => c.priority === 'high').length} 个源
+- 中优先级: ${Object.values(SOURCE_CONFIGS).filter(c => c.priority === 'medium').length} 个源  
+- 低优先级: ${Object.values(SOURCE_CONFIGS).filter(c => c.priority === 'low').length} 个源
 `;
 
     try {
@@ -247,7 +440,7 @@ ${Object.entries(stats.sources).map(([source, sourceStats]) =>
     }
 
     if (stats.errors > 0) {
-      process.exit(1); // 有错误时退出码为1
+      process.exit(1);
     }
 
   } catch (error) {
@@ -257,7 +450,6 @@ ${Object.entries(stats.sources).map(([source, sourceStats]) =>
   }
 }
 
-// 执行数据收集
 if (require.main === module) {
   collectData().catch(error => {
     console.error('Fatal error:', error);
@@ -265,4 +457,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { collectData }; 
+module.exports = { collectData };
