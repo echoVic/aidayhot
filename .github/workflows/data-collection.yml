@@ -146,6 +146,7 @@ jobs:
           rm -rf dist/scripts/
           mkdir -p dist/scripts/
           npx tsc scripts/collectDataToSupabase.ts --outDir dist/scripts --module commonjs --target es2020 --esModuleInterop true --allowSyntheticDefaultImports true --skipLibCheck true --declaration false
+          npx tsc scripts/updateCategoryStats.ts --outDir dist/scripts --module commonjs --target es2020 --esModuleInterop true --allowSyntheticDefaultImports true --skipLibCheck true --declaration false
           echo "编译完成"
           echo "检查编译输出:"
           find dist/scripts/ -name "*.js" -type f
@@ -216,6 +217,26 @@ jobs:
           
           echo "执行命令: $CMD"
           eval $CMD
+      
+      - name: 更新分类统计 - ${{ matrix.source }}
+        if: success()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "开始更新分类统计..."
+          
+          # 查找编译后的分类统计脚本
+          STATS_SCRIPT=$(find dist/scripts/ -name "updateCategoryStats.js" -type f | head -1)
+          
+          if [ -z "$STATS_SCRIPT" ]; then
+            echo "⚠️ 未找到分类统计脚本，跳过统计更新"
+          else
+            echo "✅ 找到分类统计脚本: $STATS_SCRIPT"
+            echo "执行分类统计更新..."
+            node $STATS_SCRIPT --verbose || echo "⚠️ 分类统计更新失败，但不影响主流程"
+          fi
       
       - name: 上传数据收集日志
         if: always()

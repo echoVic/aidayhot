@@ -22,7 +22,9 @@
     "test-stable-sources": "npm run compile && node dist/scripts/collectDataToSupabase.js --sources=arxiv,github,rss --uniform-config --max-results=3 --verbose",
     "test-github-actions": "node scripts/test-github-actions.js",
     "test-github-actions-config": "node scripts/test-github-actions-config.js",
-    "compile-crawlers": "node scripts/compile-crawlers.js"
+    "compile-crawlers": "node scripts/compile-crawlers.js",
+    "update-category-stats": "ts-node scripts/updateCategoryStats.ts",
+    "update-category-stats:verbose": "ts-node scripts/updateCategoryStats.ts --verbose"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
@@ -52,6 +54,7 @@
     "js-yaml": "^4.1.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.1",
+    "dotenv": "^16.5.0",
     "typescript": "^5"
   },
   "packageManager": "pnpm@9.15.4"

@@ -636,6 +636,52 @@ async function collectData(): Promise<void> {
 
     await Promise.allSettled(crawlerPromises);
 
+    // 更新分类统计
+    if (canSaveToDatabase && supabase && stats.success > 0) {
+      try {
+        log('开始更新分类统计...', 'info');
+        
+        // 获取所有分类的文章统计
+        const { data: categoryStats, error: statsError } = await supabase
+          .from('articles')
+          .select('category')
+          .not('category', 'is', null);
+        
+        if (statsError) {
+          log(`获取分类统计失败: ${statsError.message}`, 'error');
+        } else {
+          // 统计每个分类的文章数量
+          const categoryCounts: Record<string, number> = {};
+          categoryStats?.forEach(article => {
+            const category = article.category || 'general';
+            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+          });
+          
+          // 更新每个分类的count字段
+          for (const [categoryName, count] of Object.entries(categoryCounts)) {
+            try {
+              const { error: updateError } = await supabase
+                .from('categories')
+                .update({ count })
+                .eq('name', categoryName);
+              
+              if (updateError) {
+                log(`更新分类 "${categoryName}" 统计失败: ${updateError.message}`, 'error');
+              } else {
+                log(`更新分类 "${categoryName}": ${count} 篇文章`, 'info');
+              }
+            } catch (error) {
+              log(`更新分类 "${categoryName}" 时发生错误: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+            }
+          }
+          
+          log(`分类统计更新完成，共处理 ${Object.keys(categoryCounts).length} 个分类`, 'success');
+        }
+      } catch (error) {
+        log(`分类统计更新过程中发生错误: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      }
+    }
+
     // 输出最终统计
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     
