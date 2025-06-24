@@ -191,18 +191,18 @@ async function collectData(): Promise<void> {
         
         // 测试连接
         try {
+          log('开始测试数据库连接...', 'info');
           const { data, error } = await supabase.from('articles').select('count').limit(1);
           if (error) {
             log(`数据库连接测试失败: ${error.message}`, 'error');
-            if (options.verbose) {
-              log(`连接错误详情: ${JSON.stringify(error)}`, 'error');
-            }
+            log(`连接错误详情: ${JSON.stringify(error)}`, 'error');
             throw error;
           }
           log('数据库连接测试成功', 'success');
           canSaveToDatabase = true;
         } catch (connError) {
           log(`数据库连接失败: ${connError instanceof Error ? connError.message : 'Unknown connection error'}`, 'error');
+          log(`连接错误完整信息: ${JSON.stringify(connError)}`, 'error');
           if (!options.continueOnError) {
             throw connError;
           }
@@ -515,30 +515,56 @@ async function collectData(): Promise<void> {
               stats.errors++;
               stats.saveErrors++;
               
-              // 详细错误日志
+              // 详细错误日志 - 始终显示基本信息
               const errorMessage = error instanceof Error ? error.message : 'Unknown error';
               log(`${source}: 保存文章失败 - ${errorMessage}`, 'error');
+              log(`${source}: 失败文章标题: "${item.title}"`, 'error');
+              log(`${source}: 失败文章URL: ${item.url}`, 'error');
               
-              if (options.verbose) {
-                log(`${source}: 失败文章标题: "${item.title}"`, 'error');
-                log(`${source}: 失败文章URL: ${item.url}`, 'error');
-                log(`${source}: 错误堆栈: ${error instanceof Error ? error.stack : 'No stack trace'}`, 'error');
-                
-                // 如果是 Supabase 错误，显示更多信息
-                if (error && typeof error === 'object' && 'code' in error) {
-                  log(`${source}: 错误可能的解决方案:`, 'error');
+              // 详细的错误信息
+              if (error instanceof Error) {
+                log(`${source}: 错误类型: ${error.constructor.name}`, 'error');
+                if (error.stack) {
+                  log(`${source}: 错误堆栈: ${error.stack}`, 'error');
+                }
+              }
+              
+              // 输出完整的错误对象
+              try {
+                log(`${source}: 完整错误对象: ${JSON.stringify(error, null, 2)}`, 'error');
+              } catch (jsonError) {
+                log(`${source}: 无法序列化错误对象: ${String(error)}`, 'error');
+              }
+              
+              // 如果是 Supabase 错误，显示更多信息
+              if (error && typeof error === 'object') {
+                if ('code' in error) {
                   const code = (error as any).code;
+                  log(`${source}: Supabase错误代码: ${code}`, 'error');
+                  
                   if (code === '23505') {
-                    log(`  - 唯一约束冲突，可能是重复数据`, 'error');
+                    log(`${source}: 解决方案 - 唯一约束冲突，可能是重复数据`, 'error');
                   } else if (code === '23502') {
-                    log(`  - 非空约束违反，检查必需字段`, 'error');
+                    log(`${source}: 解决方案 - 非空约束违反，检查必需字段`, 'error');
                   } else if (code === '23503') {
-                    log(`  - 外键约束违反，检查分类是否存在`, 'error');
+                    log(`${source}: 解决方案 - 外键约束违反，检查分类是否存在`, 'error');
                   } else if (code === 'PGRST116') {
-                    log(`  - 权限问题，检查RLS策略`, 'error');
+                    log(`${source}: 解决方案 - 权限问题，检查RLS策略`, 'error');
                   } else {
-                    log(`  - 未知错误代码: ${code}`, 'error');
+                    log(`${source}: 解决方案 - 未知错误代码: ${code}`, 'error');
                   }
+                }
+                
+                if ('message' in error) {
+                  log(`${source}: Supabase错误消息: ${(error as any).message}`, 'error');
+                }
+                
+                if ('details' in error) {
+                  log(`${source}: Supabase错误详情: ${JSON.stringify((error as any).details)}`, 'error');
+                }
+                
+                if ('hint' in error) {
+                  log(`${source}: Supabase错误提示: ${(error as any).hint}`, 'error');
                 }
               }
               
