@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       sources:
-        description: '指定爬取源 (arxiv,github,papers-with-code,stackoverflow,rss 或 all)'
+        description: '指定爬取源 (多个用逗号分隔，如: arxiv,github)'
         required: false
         default: 'all'
         type: choice
@@ -18,10 +18,13 @@ on:
           - all
           - arxiv
           - github
+          - rss
           - papers-with-code
           - stackoverflow
-          - rss
-      use_smart_config:
+          - arxiv,github
+          - arxiv,rss
+          - github,rss
+      use_source_config:
         description: '使用智能源配置 (推荐)'
         required: false
         default: 'true'
@@ -34,6 +37,14 @@ on:
         required: false
         default: '10'
         type: string
+      continue_on_error:
+        description: '遇到错误时继续执行其他源'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
   collect-data:
@@ -59,32 +70,64 @@ jobs:
         run: pnpm install
       
       - name: 编译 TypeScript 爬虫
-        run: pnpm run compile-crawlers
+        run: |
+          echo "开始编译 TypeScript 文件..."
+          rm -rf dist/scripts/
+          mkdir -p dist/scripts/
+          npx tsc scripts/collectDataToSupabase.ts --outDir dist/scripts --module commonjs --target es2020 --esModuleInterop true --allowSyntheticDefaultImports true --skipLibCheck true --declaration false
+          echo "编译完成"
+          ls -la dist/scripts/scripts/
       
       - name: 配置环境变量
         run: |
           echo "NODE_ENV=production" >> $GITHUB_ENV
           echo "TZ=Asia/Shanghai" >> $GITHUB_ENV
       
+      - name: 验证环境变量
+        run: |
+          echo "检查环境变量配置..."
+          echo "SUPABASE_URL: ${SUPABASE_URL:0:20}..."
+          echo "SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}..."
+          echo "SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:0:20}..."
+          echo "GH_TOKEN: ${GH_TOKEN:0:20}..."
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      
       - name: 运行数据收集
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          if [ "${{ github.event.inputs.use_smart_config || 'true' }}" = "true" ]; then
-            node dist/scripts/collectDataToSupabase.js \
-              --sources="${{ github.event.inputs.sources || 'all' }}" \
-              --timeout=25 \
-              --verbose
+          echo "开始运行数据收集..."
+          
+          # 构建命令参数
+          SOURCES="${{ github.event.inputs.sources || 'all' }}"
+          USE_SOURCE_CONFIG="${{ github.event.inputs.use_source_config || 'true' }}"
+          MAX_RESULTS="${{ github.event.inputs.max_results || '10' }}"
+          CONTINUE_ON_ERROR="${{ github.event.inputs.continue_on_error || 'true' }}"
+          
+          CMD="node dist/scripts/scripts/collectDataToSupabase.js"
+          CMD="$CMD --sources=$SOURCES"
+          CMD="$CMD --timeout=25"
+          CMD="$CMD --verbose"
+          
+          if [ "$USE_SOURCE_CONFIG" = "true" ]; then
+            CMD="$CMD --use-source-config"
           else
-            node dist/scripts/collectDataToSupabase.js \
-              --sources="${{ github.event.inputs.sources || 'all' }}" \
-              --max-results="${{ github.event.inputs.max_results || '10' }}" \
-              --timeout=25 \
-              --verbose
+            CMD="$CMD --max-results=$MAX_RESULTS"
           fi
+          
+          if [ "$CONTINUE_ON_ERROR" = "true" ]; then
+            CMD="$CMD --continue-on-error"
+          fi
+          
+          echo "执行命令: $CMD"
+          eval $CMD
       
       - name: 生成执行报告
         if: always()
@@ -93,26 +136,81 @@ jobs:
           echo "" >> report.md
           echo "**执行时间**: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> report.md
           echo "**触发方式**: ${{ github.event_name }}" >> report.md
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "**指定源**: ${{ github.event.inputs.sources || 'all' }}" >> report.md
-            echo "**智能配置**: ${{ github.event.inputs.use_smart_config || 'true' }}" >> report.md
-            if [ "${{ github.event.inputs.use_smart_config || 'true' }}" = "false" ]; then
-              echo "**统一结果数**: ${{ github.event.inputs.max_results || '10' }}" >> report.md
-            fi
-          fi
           echo "**执行状态**: ${{ job.status }}" >> report.md
           echo "" >> report.md
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "### 🔧 手动配置" >> report.md
+            echo "- **指定源**: ${{ github.event.inputs.sources || 'all' }}" >> report.md
+            echo "- **智能配置**: ${{ github.event.inputs.use_source_config || 'true' }}" >> report.md
+            echo "- **继续执行**: ${{ github.event.inputs.continue_on_error || 'true' }}" >> report.md
+            if [ "${{ github.event.inputs.use_source_config || 'true' }}" = "false" ]; then
+              echo "- **统一结果数**: ${{ github.event.inputs.max_results || '10' }}" >> report.md
+            fi
+            echo "" >> report.md
+          fi
           
           if [ -f collection_log.txt ]; then
             echo "### 📊 收集统计" >> report.md
             echo '```' >> report.md
             cat collection_log.txt >> report.md
             echo '```' >> report.md
+          else
+            echo "### 📊 收集统计" >> report.md
+            echo "未找到收集日志文件" >> report.md
           fi
+          
+          echo "### 📝 详细日志" >> report.md
+          echo "请查看 GitHub Actions 日志获取完整的执行详情" >> report.md
           
           cat report.md
       
-      - name: 发送通知 (失败时)
+      - name: 检查数据收集结果
+        if: success()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "检查数据库中最新收集的数据..."
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
+          
+          (async () => {
+            try {
+              const { data, error } = await supabase
+                .from('articles')
+                .select('source_type, created_at')
+                .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // 最近1小时
+                .order('created_at', { ascending: false });
+                
+              if (error) throw error;
+              
+              console.log('✅ 最近1小时收集的数据:');
+              const counts = {};
+              data.forEach(article => {
+                counts[article.source_type] = (counts[article.source_type] || 0) + 1;
+              });
+              
+              Object.entries(counts).forEach(([source, count]) => {
+                console.log('  -', source + ':', count, '篇');
+              });
+              
+              console.log('总计:', data.length, '篇文章');
+            } catch (error) {
+              console.error('❌ 检查数据时出错:', error.message);
+            }
+          })();
+          "
+      
+      - name: 发送成功通知
+        if: success()
+        run: |
+          echo "✅ 数据收集任务成功完成"
+          echo "执行时间: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+      
+      - name: 发送失败通知
         if: failure()
         run: |
           echo "❌ 数据收集任务失败"

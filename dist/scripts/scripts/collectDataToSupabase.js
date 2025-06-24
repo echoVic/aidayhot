@@ -155,16 +155,45 @@ async function collectData() {
         let canSaveToDatabase = false;
         try {
             if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-                supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
-                canSaveToDatabase = true;
+                const supabaseUrl = process.env.SUPABASE_URL;
+                const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+                log(`Supabase URL: ${supabaseUrl}`, 'info');
+                log(`使用的密钥类型: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' : 'ANON_KEY'}`, 'info');
+                supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseKey);
+                // 测试连接
+                try {
+                    log('开始测试数据库连接...', 'info');
+                    const { data, error } = await supabase.from('articles').select('count').limit(1);
+                    if (error) {
+                        log(`数据库连接测试失败: ${error.message}`, 'error');
+                        log(`连接错误详情: ${JSON.stringify(error)}`, 'error');
+                        throw error;
+                    }
+                    log('数据库连接测试成功', 'success');
+                    canSaveToDatabase = true;
+                }
+                catch (connError) {
+                    log(`数据库连接失败: ${connError instanceof Error ? connError.message : 'Unknown connection error'}`, 'error');
+                    log(`连接错误完整信息: ${JSON.stringify(connError)}`, 'error');
+                    if (!options.continueOnError) {
+                        throw connError;
+                    }
+                    log('继续执行爬虫测试（跳过数据保存）...', 'info');
+                }
                 log('Supabase 客户端初始化成功', 'success');
             }
             else {
                 log('Supabase 环境变量缺失，将只运行爬虫测试', 'info');
+                log(`SUPABASE_URL: ${process.env.SUPABASE_URL ? '已设置' : '未设置'}`, 'info');
+                log(`SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY ? '已设置' : '未设置'}`, 'info');
+                log(`SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? '已设置' : '未设置'}`, 'info');
             }
         }
         catch (error) {
             log(`Supabase 初始化失败: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+            if (options.verbose) {
+                log(`初始化错误详情: ${JSON.stringify(error)}`, 'error');
+            }
             if (!options.continueOnError) {
                 throw error;
             }
@@ -172,7 +201,9 @@ async function collectData() {
         }
         // 确定要爬取的源
         const allSources = ['arxiv', 'github', 'rss', 'papers-with-code', 'stackoverflow'];
-        const targetSources = options.sources === 'all' ? allSources : [options.sources];
+        const targetSources = options.sources === 'all'
+            ? allSources
+            : options.sources.split(',').map(s => s.trim()).filter(s => s.length > 0);
         log(`目标爬取源: ${targetSources.join(', ')}`, 'info');
         // 显示智能配置信息
         if (options.useSourceConfig) {
@@ -239,7 +270,7 @@ async function collectData() {
                             if (result.success && result.papers) {
                                 results.push(...result.papers.slice(0, Math.ceil(maxResults / 5)).map((paper) => ({
                                     title: paper.title,
-                                    url: paper.originalUrl,
+                                    url: paper.abstractUrl || paper.pdfUrl, // 使用正确的URL字段
                                     description: paper.summary,
                                     author: paper.authors.join(', '),
                                     publishedDate: paper.published.toISOString(),
@@ -257,14 +288,14 @@ async function collectData() {
                         if (githubResult.success && githubResult.repositories) {
                             results = githubResult.repositories.map((repo) => ({
                                 title: repo.fullName,
-                                url: repo.originalUrl,
+                                url: repo.url, // 使用正确的URL字段
                                 description: repo.content || repo.description || '',
                                 author: repo.owner.login,
-                                publishedDate: repo.publishedAt,
+                                publishedDate: repo.updatedAt, // 使用updatedAt而不是publishedAt
                                 category: 'GitHub项目',
                                 tags: repo.topics || [],
                                 source: 'github',
-                                repoId: repo.id // 添加 GitHub 仓库 ID
+                                repoId: repo.owner.id // 使用owner.id，这是真正的数字ID
                             }));
                         }
                         break;
@@ -277,12 +308,12 @@ async function collectData() {
                                 const itemsToAdd = feedResult.items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
                                 results.push(...itemsToAdd.map((item) => ({
                                     title: item.title,
-                                    url: item.originalUrl,
-                                    description: item.content.substring(0, 500) + (item.content.length > 500 ? '...' : ''),
+                                    url: item.link, // 使用正确的URL字段
+                                    description: (item.description || item.content || '').substring(0, 500) + (((item.description || item.content || '').length > 500) ? '...' : ''),
                                     author: item.author || feedName,
-                                    publishedDate: item.publishedAt ? item.publishedAt.toISOString() : new Date().toISOString(),
+                                    publishedDate: item.pubDate ? item.pubDate.toISOString() : new Date().toISOString(),
                                     category: 'RSS文章',
-                                    tags: item.metadata?.categories || [],
+                                    tags: item.categories || [],
                                     source: 'rss'
                                 })));
                             }
@@ -338,7 +369,9 @@ async function collectData() {
                                 throw new Error('执行超时');
                             }
                             // 生成唯一的内容ID和文章ID
-                            const contentId = `${item.source}_${encodeURIComponent(item.url)}`;
+                            const crypto = require('crypto');
+                            const urlHash = crypto.createHash('md5').update(item.url).digest('hex').substring(0, 16);
+                            const contentId = `${item.source}_${urlHash}`; // 使用hash缩短长度
                             const articleId = `${item.source}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                             // 准备基础数据
                             const articleData = {
@@ -362,17 +395,93 @@ async function collectData() {
                             // 为特定源添加额外字段
                             if (item.source === 'arxiv' && item.arxivId) {
                                 articleData.arxiv_id = item.arxivId;
+                                if (options.verbose) {
+                                    log(`${source}: 添加ArXiv ID: ${item.arxivId}`, 'info');
+                                }
                             }
                             if (item.source === 'github' && item.repoId) {
-                                articleData.repo_id = item.repoId;
+                                // GitHub repo_id 暂时设为null，因为我们当前使用的是hash字符串而不是数字ID
+                                articleData.repo_id = null;
+                                if (options.verbose) {
+                                    log(`${source}: GitHub仓库hash: ${item.repoId}`, 'info');
+                                }
                             }
-                            const { error } = await supabase
+                            // 数据验证
+                            const requiredFields = ['id', 'title', 'source_url', 'source_type', 'content_id'];
+                            const missingFields = requiredFields.filter(field => !articleData[field]);
+                            if (missingFields.length > 0) {
+                                log(`${source}: 数据验证失败，缺少必需字段: ${missingFields.join(', ')}`, 'error');
+                                if (options.verbose) {
+                                    log(`完整数据: ${JSON.stringify(articleData, null, 2)}`, 'error');
+                                }
+                                throw new Error(`缺少必需字段: ${missingFields.join(', ')}`);
+                            }
+                            // 新的表结构使用更合理的字段长度，只做基本的长度检查
+                            if (articleData.title && articleData.title.length > 1000) {
+                                articleData.title = articleData.title.substring(0, 997) + '...';
+                                log(`${source}: 标题过长，已截断`, 'info');
+                            }
+                            if (articleData.summary && articleData.summary.length > 5000) {
+                                articleData.summary = articleData.summary.substring(0, 4997) + '...';
+                                log(`${source}: 摘要过长，已截断`, 'info');
+                            }
+                            if (articleData.category && articleData.category.length > 100) {
+                                articleData.category = articleData.category.substring(0, 97) + '...';
+                                log(`${source}: 分类名称过长，已截断`, 'info');
+                            }
+                            // 详细调试信息
+                            if (options.verbose) {
+                                log(`${source}: 准备保存文章数据: ${JSON.stringify({
+                                    id: articleData.id,
+                                    title: articleData.title.substring(0, 50) + '...',
+                                    content_id: articleData.content_id,
+                                    source_type: articleData.source_type
+                                })}`, 'info');
+                            }
+                            // 先尝试查找是否已存在相同内容
+                            const { data: existingData } = await supabase
                                 .from('articles')
-                                .upsert([articleData], {
-                                onConflict: 'content_id' // 使用 content_id 来避免重复内容
-                            });
+                                .select('id')
+                                .eq('content_id', articleData.content_id)
+                                .limit(1);
+                            let data, error;
+                            if (existingData && existingData.length > 0) {
+                                // 如果存在，更新现有记录
+                                const { data: updateData, error: updateError } = await supabase
+                                    .from('articles')
+                                    .update(articleData)
+                                    .eq('content_id', articleData.content_id)
+                                    .select();
+                                data = updateData;
+                                error = updateError;
+                                if (options.verbose && !error) {
+                                    log(`${source}: 更新已存在的文章`, 'info');
+                                }
+                            }
+                            else {
+                                // 如果不存在，插入新记录
+                                const { data: insertData, error: insertError } = await supabase
+                                    .from('articles')
+                                    .insert([articleData])
+                                    .select();
+                                data = insertData;
+                                error = insertError;
+                                if (options.verbose && !error) {
+                                    log(`${source}: 插入新文章`, 'info');
+                                }
+                            }
                             if (error) {
+                                // 详细的错误信息
+                                log(`${source}: Supabase错误详情:`, 'error');
+                                log(`  - 错误代码: ${error.code}`, 'error');
+                                log(`  - 错误消息: ${error.message}`, 'error');
+                                log(`  - 错误详情: ${JSON.stringify(error.details)}`, 'error');
+                                log(`  - 错误提示: ${error.hint}`, 'error');
+                                log(`  - 尝试插入的数据: ${JSON.stringify(articleData, null, 2)}`, 'error');
                                 throw error;
+                            }
+                            if (options.verbose && data) {
+                                log(`${source}: 数据库返回: ${JSON.stringify(data)}`, 'info');
                             }
                             sourceStats.success++;
                             stats.success++;
@@ -384,8 +493,55 @@ async function collectData() {
                             sourceStats.errors++;
                             stats.errors++;
                             stats.saveErrors++;
-                            if (options.verbose) {
-                                log(`${source}: 保存文章失败 - ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+                            // 详细错误日志 - 始终显示基本信息
+                            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                            log(`${source}: 保存文章失败 - ${errorMessage}`, 'error');
+                            log(`${source}: 失败文章标题: "${item.title}"`, 'error');
+                            log(`${source}: 失败文章URL: ${item.url}`, 'error');
+                            // 详细的错误信息
+                            if (error instanceof Error) {
+                                log(`${source}: 错误类型: ${error.constructor.name}`, 'error');
+                                if (error.stack) {
+                                    log(`${source}: 错误堆栈: ${error.stack}`, 'error');
+                                }
+                            }
+                            // 输出完整的错误对象
+                            try {
+                                log(`${source}: 完整错误对象: ${JSON.stringify(error, null, 2)}`, 'error');
+                            }
+                            catch (jsonError) {
+                                log(`${source}: 无法序列化错误对象: ${String(error)}`, 'error');
+                            }
+                            // 如果是 Supabase 错误，显示更多信息
+                            if (error && typeof error === 'object') {
+                                if ('code' in error) {
+                                    const code = error.code;
+                                    log(`${source}: Supabase错误代码: ${code}`, 'error');
+                                    if (code === '23505') {
+                                        log(`${source}: 解决方案 - 唯一约束冲突，可能是重复数据`, 'error');
+                                    }
+                                    else if (code === '23502') {
+                                        log(`${source}: 解决方案 - 非空约束违反，检查必需字段`, 'error');
+                                    }
+                                    else if (code === '23503') {
+                                        log(`${source}: 解决方案 - 外键约束违反，检查分类是否存在`, 'error');
+                                    }
+                                    else if (code === 'PGRST116') {
+                                        log(`${source}: 解决方案 - 权限问题，检查RLS策略`, 'error');
+                                    }
+                                    else {
+                                        log(`${source}: 解决方案 - 未知错误代码: ${code}`, 'error');
+                                    }
+                                }
+                                if ('message' in error) {
+                                    log(`${source}: Supabase错误消息: ${error.message}`, 'error');
+                                }
+                                if ('details' in error) {
+                                    log(`${source}: Supabase错误详情: ${JSON.stringify(error.details)}`, 'error');
+                                }
+                                if ('hint' in error) {
+                                    log(`${source}: Supabase错误提示: ${error.hint}`, 'error');
+                                }
                             }
                             // 如果不是 continue-on-error 模式，在连续多次保存失败时停止
                             if (!options.continueOnError && sourceStats.errors > 5) {
