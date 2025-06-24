@@ -45,11 +45,25 @@ on:
         options:
           - 'true'
           - 'false'
+      runner_type:
+        description: 'Runner 类型选择'
+        required: false
+        default: 'github-hosted'
+        type: choice
+        options:
+          - 'github-hosted'
+          - 'self-hosted'
 
 jobs:
   collect-data:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 动态选择 runner 类型
+    runs-on: ${{ github.event.inputs.runner_type == 'self-hosted' && 'self-hosted' || 'ubuntu-22.04' }}
+    timeout-minutes: 25    # 稍微减少超时时间，更快检测问题
+    
+    # 添加环境优化
+    env:
+      NODE_OPTIONS: '--max-old-space-size=4096'  # 增加 Node.js 内存限制
+      FORCE_COLOR: '1'  # 强制彩色输出，便于调试
     
     steps:
       - name: 检出代码
@@ -63,11 +77,15 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'  # 升级到 Node.js 20 LTS，性能更好
           cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
       
       - name: 安装依赖
-        run: pnpm install
+        run: |
+          echo "安装依赖开始时间: $(date)"
+          pnpm install --frozen-lockfile --prefer-offline
+          echo "安装依赖完成时间: $(date)"
       
       - name: 编译 TypeScript 脚本
         run: |
@@ -83,6 +101,20 @@ jobs:
         run: |
           echo "NODE_ENV=production" >> $GITHUB_ENV
           echo "TZ=Asia/Shanghai" >> $GITHUB_ENV
+      
+      - name: 系统资源检查
+        run: |
+          echo "=== 系统资源状态 ==="
+          echo "CPU 信息:"
+          nproc
+          cat /proc/cpuinfo | grep "model name" | head -1
+          echo "内存信息:"
+          free -h
+          echo "磁盘空间:"
+          df -h
+          echo "Node.js 版本: $(node --version)"
+          echo "pnpm 版本: $(pnpm --version)"
+          echo "========================"
       
       - name: 验证环境变量
         run: |
