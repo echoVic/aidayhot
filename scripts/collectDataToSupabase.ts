@@ -287,6 +287,9 @@ async function collectData(): Promise<void> {
       const sourceStats: SourceStats = { total: 0, success: 0, errors: 0, crawlerError: false };
       stats.sources[source] = sourceStats;
       
+      // 为每个数据源设置独立的开始时间
+      const sourceStartTime = Date.now();
+      
       try {
         // 获取该源的配置
         const sourceConfig = SOURCE_CONFIGS[source];
@@ -411,8 +414,11 @@ async function collectData(): Promise<void> {
         if (canSaveToDatabase && supabase) {
           for (const item of results) {
             try {
-              if (Date.now() - startTime > timeoutMs) {
-                throw new Error('执行超时');
+              // 为单个数据源设置独立的超时检查（每个源有15分钟的独立时间）
+              const sourceTimeoutMs = 15 * 60 * 1000; // 15分钟
+              if (Date.now() - sourceStartTime > sourceTimeoutMs) {
+                log(`${source}: 数据源处理超时（${Math.floor((Date.now() - sourceStartTime) / 1000)}秒），停止处理剩余文章`, 'error');
+                break; // 跳出当前源的处理，但不抛出错误
               }
 
               // 生成唯一的内容ID和文章ID
@@ -493,35 +499,50 @@ async function collectData(): Promise<void> {
                 })}`, 'info');
               }
 
-              // 先尝试查找是否已存在相同内容
-              const { data: existingData } = await supabase
-                .from('articles')
-                .select('id')
-                .eq('content_id', articleData.content_id)
-                .limit(1);
+              // 先尝试查找是否已存在相同内容（添加超时）
+              const { data: existingData } = await Promise.race([
+                supabase
+                  .from('articles')
+                  .select('id')
+                  .eq('content_id', articleData.content_id)
+                  .limit(1),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('查询超时')), 10000)
+                )
+              ]) as any;
 
               let data, error;
               
               if (existingData && existingData.length > 0) {
-                // 如果存在，更新现有记录
-                const { data: updateData, error: updateError } = await supabase
-                  .from('articles')
-                  .update(articleData)
-                  .eq('content_id', articleData.content_id)
-                  .select();
-                data = updateData;
-                error = updateError;
+                // 如果存在，更新现有记录（添加超时）
+                const updateResult = await Promise.race([
+                  supabase
+                    .from('articles')
+                    .update(articleData)
+                    .eq('content_id', articleData.content_id)
+                    .select(),
+                  new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('更新超时')), 15000)
+                  )
+                ]) as any;
+                data = updateResult.data;
+                error = updateResult.error;
                 if (options.verbose && !error) {
                   log(`${source}: 更新已存在的文章`, 'info');
                 }
               } else {
-                // 如果不存在，插入新记录
-                const { data: insertData, error: insertError } = await supabase
-                  .from('articles')
-                  .insert([articleData])
-                  .select();
-                data = insertData;
-                error = insertError;
+                // 如果不存在，插入新记录（添加超时）
+                const insertResult = await Promise.race([
+                  supabase
+                    .from('articles')
+                    .insert([articleData])
+                    .select(),
+                  new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('插入超时')), 15000)
+                  )
+                ]) as any;
+                data = insertResult.data;
+                error = insertResult.error;
                 if (options.verbose && !error) {
                   log(`${source}: 插入新文章`, 'info');
                 }
