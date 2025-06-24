@@ -12,15 +12,12 @@ export { BaseCrawler } from './BaseCrawler';
 // Export specific crawlers
 export { ArxivCrawler } from './ArxivCrawler';
 export { GitHubCrawler } from './GitHubCrawler';
+export { PapersWithCodeCrawler } from './PapersWithCodeCrawler';
+export { RSSCrawler } from './RSSCrawler';
+export { StackOverflowCrawler } from './StackOverflowCrawler';
 
-// Legacy JavaScript crawlers (if they exist)
-// Note: These should be migrated to TypeScript
-export { default as PapersWithCodeCrawlerJS } from './papersWithCodeCrawler.js';
-export { default as RSSCrawlerJS } from './rssCrawler.js';
-export { default as SocialMediaCrawlerJS } from './socialMediaCrawler.js';
-export { default as StackOverflowCrawlerJS } from './stackOverflowCrawler.js';
-export { default as VideoCrawlerJS } from './videoCrawler.js';
-export { default as WebCrawlerJS } from './webCrawler.js';
+// Legacy JavaScript crawlers have been removed
+// All crawlers should now be implemented in TypeScript
 
 // Crawler factory
 import { ArxivCrawler } from './ArxivCrawler';

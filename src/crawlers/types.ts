@@ -344,6 +344,35 @@ export interface RateLimitStatus {
   limit: number;
 }
 
+// Enhanced RSS Types for new RSSCrawler
+export interface RSSFeedInfo {
+  title: string;
+  description: string;
+  link: string;
+  lastBuildDate: string;
+  language: string;
+}
+
+export interface RSSFeedItem {
+  contentId: string;
+  sourceId: string;
+  originalUrl: string;
+  title: string;
+  content: string;
+  contentType: string;
+  author: string;
+  publishedAt: Date | null;
+  crawledAt: Date;
+  metadata: {
+    feedTitle: string;
+    feedDescription: string;
+    feedLink: string;
+    categories: string[];
+    guid: string;
+  };
+  checksum: string | null;
+}
+
 // Base crawler interface
 export interface BaseCrawler {
   readonly name: string;

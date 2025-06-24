@@ -57,11 +57,11 @@ async function testDataCollectionLogic() {
     sources: {}
   };
 
-  // 只测试稳定的源
+  // 只测试已转换为TS的源
   const stableSources = ['arxiv', 'github'];
-  const partialSources = ['rss']; // RSS源部分可用
+  // 暂时移除RSS等源，因为JS版本已删除
   
-  const targetSources = [...stableSources, ...partialSources];
+  const targetSources = stableSources;
   
   log(`目标测试源: ${targetSources.join(', ')}`);
   log('使用智能源配置:', 'info');
@@ -80,21 +80,20 @@ async function testDataCollectionLogic() {
     try {
       log(`开始测试 ${source}`, 'info');
       
-      // 导入对应的爬虫
-      let CrawlerClass;
-      switch (source) {
-        case 'arxiv':
-          CrawlerClass = require('../src/crawlers/arxivCrawler.js');
-          break;
-        case 'github':
-          CrawlerClass = require('../src/crawlers/githubCrawler.js');
-          break;
-        case 'rss':
-          CrawlerClass = require('../src/crawlers/rssCrawler.js');
-          break;
-        default:
-          throw new Error(`未知的爬虫源: ${source}`);
-      }
+             // 导入对应的TS爬虫
+       let CrawlerClass;
+                switch (source) {
+           case 'arxiv':
+             const ArxivCrawlerModule = require('../dist/crawlers/ArxivCrawler.js');
+             CrawlerClass = ArxivCrawlerModule.ArxivCrawler;
+             break;
+           case 'github':
+             const GitHubCrawlerModule = require('../dist/crawlers/GitHubCrawler.js');
+             CrawlerClass = GitHubCrawlerModule.GitHubCrawler;
+             break;
+           default:
+             throw new Error(`未支持的爬虫源: ${source}`);
+         }
 
       const crawler = new CrawlerClass();
       const config = SOURCE_CONFIGS[source];
@@ -137,38 +136,7 @@ async function testDataCollectionLogic() {
           }
           break;
 
-        case 'rss':
-          // 使用更可靠的RSS源
-          const reliableRSSFeeds = {
-            'Google AI Blog': 'http://googleaiblog.blogspot.com/atom.xml',
-            'KDnuggets': 'https://www.kdnuggets.com/feed'
-          };
-          
-          for (const [feedName, feedUrl] of Object.entries(reliableRSSFeeds)) {
-            try {
-              const rssResult = await crawler.fetchRSSFeed(feedUrl);
-              if (rssResult.success && rssResult.items) {
-                const feedItems = rssResult.items.slice(0, Math.ceil(maxResults / Object.keys(reliableRSSFeeds).length));
-                const mappedItems = feedItems.map(item => ({
-                  title: item.title,
-                  url: item.originalUrl || item.link,
-                  description: item.content || item.contentSnippet || '',
-                  author: item.author || feedName,
-                  publishedDate: item.publishedAt ? item.publishedAt.toISOString() : new Date().toISOString(),
-                  category: `RSS-${feedName}`,
-                  tags: item.metadata?.categories || [],
-                  source: 'rss'
-                }));
-                results.push(...mappedItems);
-                log(`RSS ${feedName}: 获取 ${mappedItems.length} 篇文章`, 'success');
-              } else {
-                log(`RSS ${feedName}: 获取失败 - ${rssResult.error}`, 'error');
-              }
-            } catch (error) {
-              log(`RSS ${feedName}: 处理失败 - ${error.message}`, 'error');
-            }
-          }
-          break;
+        
       }
 
       sourceStats.total = results.length;

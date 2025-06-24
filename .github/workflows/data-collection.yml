@@ -58,6 +58,9 @@ jobs:
       - name: 安装依赖
         run: pnpm install
       
+      - name: 编译 TypeScript 爬虫
+        run: pnpm run compile-crawlers
+      
       - name: 配置环境变量
         run: |
           echo "NODE_ENV=production" >> $GITHUB_ENV
@@ -71,12 +74,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           if [ "${{ github.event.inputs.use_smart_config || 'true' }}" = "true" ]; then
-            node scripts/collectDataToSupabase.js \
+            node dist/scripts/collectDataToSupabase.js \
               --sources="${{ github.event.inputs.sources || 'all' }}" \
               --timeout=25 \
               --verbose
           else
-            node scripts/collectDataToSupabase.js \
+            node dist/scripts/collectDataToSupabase.js \
               --sources="${{ github.event.inputs.sources || 'all' }}" \
               --max-results="${{ github.event.inputs.max_results || '10' }}" \
               --timeout=25 \
