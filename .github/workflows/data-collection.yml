@@ -77,7 +77,7 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'  # 升级到 Node.js 20 LTS，性能更好
+          node-version: '18'
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
       
@@ -102,30 +102,20 @@ jobs:
           echo "NODE_ENV=production" >> $GITHUB_ENV
           echo "TZ=Asia/Shanghai" >> $GITHUB_ENV
       
-      - name: 系统资源检查
+      - name: 环境信息
         run: |
-          echo "=== 系统资源状态 ==="
-          echo "CPU 信息:"
-          nproc
-          cat /proc/cpuinfo | grep "model name" | head -1
-          echo "内存信息:"
-          free -h
-          echo "磁盘空间:"
-          df -h
-          echo "Node.js 版本: $(node --version)"
-          echo "pnpm 版本: $(pnpm --version)"
-          echo "========================"
+          echo "Node.js: $(node --version)"
+          echo "pnpm: $(pnpm --version)"
+          echo "系统: $(uname -r)"
       
       - name: 验证环境变量
         run: |
-          echo "检查环境变量配置..."
-          echo "SUPABASE_URL: ${SUPABASE_URL:0:20}..."
-          echo "SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}..."
-          echo "SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:0:20}..."
-          echo "GH_TOKEN: ${GH_TOKEN:0:20}..."
+          echo "验证关键环境变量..."
+          [ -n "$SUPABASE_URL" ] && echo "✅ SUPABASE_URL" || echo "❌ SUPABASE_URL"
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && echo "✅ SUPABASE_SERVICE_ROLE_KEY" || echo "❌ SUPABASE_SERVICE_ROLE_KEY"
+          [ -n "$GH_TOKEN" ] && echo "✅ GH_TOKEN" || echo "❌ GH_TOKEN"
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
       
@@ -172,64 +162,14 @@ jobs:
           echo "执行命令: $CMD"
           eval $CMD
       
-      - name: 生成执行报告
+      - name: 任务完成状态
         if: always()
         run: |
-          echo "## 🤖 AI日报数据收集报告" > report.md
-          echo "" >> report.md
-          echo "**执行时间**: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> report.md
-          echo "**触发方式**: ${{ github.event_name }}" >> report.md
-          echo "" >> report.md
-          
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "### 🔧 手动配置" >> report.md
-            echo "- **指定源**: ${{ github.event.inputs.sources || 'all' }}" >> report.md
-            echo "- **智能配置**: ${{ github.event.inputs.use_source_config || 'true' }}" >> report.md
-            echo "- **继续执行**: ${{ github.event.inputs.continue_on_error || 'true' }}" >> report.md
-            if [ "${{ github.event.inputs.use_source_config || 'true' }}" = "false" ]; then
-              echo "- **统一结果数**: ${{ github.event.inputs.max_results || '10' }}" >> report.md
-            fi
-            echo "" >> report.md
-          fi
+          echo "=== 任务执行完成 ==="
+          echo "完成时间: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "触发方式: ${{ github.event_name }}"
           
           if [ -f collection_log.txt ]; then
-            echo "### 📊 收集统计" >> report.md
-            echo '```' >> report.md
-            cat collection_log.txt >> report.md
-            echo '```' >> report.md
-          else
-            echo "### 📊 收集统计" >> report.md
-            echo "未找到收集日志文件" >> report.md
-          fi
-          
-          echo "### 📝 详细日志" >> report.md
-          echo "请查看 GitHub Actions 日志获取完整的执行详情" >> report.md
-          
-          echo "✅ 报告生成完成"
-          cat report.md
-      
-      - name: 检查数据收集结果
-        if: success()
-        run: |
-          echo "✅ 数据收集任务执行完成"
-          echo "📊 收集统计:"
-          if [ -f collection_log.txt ]; then
-            echo "$(cat collection_log.txt)"
-          else
-            echo "未找到收集日志文件"
-          fi
-          echo ""
-          echo "🔍 详细结果请查看数据库或执行日志"
-      
-      - name: 发送成功通知
-        if: success()
-        run: |
-          echo "✅ 数据收集任务成功完成"
-          echo "执行时间: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-      
-      - name: 发送失败通知
-        if: failure()
-        run: |
-          echo "❌ 数据收集任务失败"
-          echo "请检查 GitHub Actions 日志获取详细信息"
-          echo "失败时间: $(date '+%Y-%m-%d %H:%M:%S %Z')" 
+            echo "收集结果概览:"
+            tail -10 collection_log.txt
+          fi 
