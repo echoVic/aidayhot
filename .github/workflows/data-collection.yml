@@ -136,7 +136,6 @@ jobs:
           echo "" >> report.md
           echo "**执行时间**: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> report.md
           echo "**触发方式**: ${{ github.event_name }}" >> report.md
-          echo "**执行状态**: ${{ job.status }}" >> report.md
           echo "" >> report.md
           
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -167,42 +166,16 @@ jobs:
       
       - name: 检查数据收集结果
         if: success()
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "检查数据库中最新收集的数据..."
-          node -e "
-          const { createClient } = require('@supabase/supabase-js');
-          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
-          
-          (async () => {
-            try {
-              const { data, error } = await supabase
-                .from('articles')
-                .select('source_type, created_at')
-                .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // 最近1小时
-                .order('created_at', { ascending: false });
-                
-              if (error) throw error;
-              
-              console.log('✅ 最近1小时收集的数据:');
-              const counts = {};
-              data.forEach(article => {
-                counts[article.source_type] = (counts[article.source_type] || 0) + 1;
-              });
-              
-              Object.entries(counts).forEach(([source, count]) => {
-                console.log('  -', source + ':', count, '篇');
-              });
-              
-              console.log('总计:', data.length, '篇文章');
-            } catch (error) {
-              console.error('❌ 检查数据时出错:', error.message);
-            }
-          })();
-          "
+          echo "✅ 数据收集任务执行完成"
+          echo "📊 收集统计:"
+          if [ -f collection_log.txt ]; then
+            echo "$(cat collection_log.txt)"
+          else
+            echo "未找到收集日志文件"
+          fi
+          echo ""
+          echo "🔍 详细结果请查看数据库或执行日志"
       
       - name: 发送成功通知
         if: success()
