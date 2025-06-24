@@ -84,7 +84,7 @@ jobs:
       - name: 安装依赖
         run: |
           echo "安装依赖开始时间: $(date)"
-          pnpm install --frozen-lockfile --prefer-offline
+          pnpm install
           echo "安装依赖完成时间: $(date)"
       
       - name: 编译 TypeScript 脚本
