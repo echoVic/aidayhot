@@ -3,18 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "migrate": "node scripts/migrateToSupabase.js",
     "test-migrate": "node scripts/testMigration.js",
     "update-schema": "node scripts/updateDatabaseSchema.js",
-    "collect": "node scripts/collectDataToSupabase.js",
-    "collect:test": "node scripts/testCollector.js",
-    "collect:arxiv": "node -e \"require('./scripts/collectDataToSupabase.js').collectArxivPapers()\"",
-    "collect:github": "node -e \"require('./scripts/collectDataToSupabase.js').collectGithubRepos()\"",
-    "collect:rss": "node -e \"require('./scripts/collectDataToSupabase.js').collectRSSFeeds()\""
+    "collect-data": "node scripts/collectDataToSupabase.js",
+    "collect-data-verbose": "node scripts/collectDataToSupabase.js --verbose",
+    "test-arxiv": "node scripts/collectDataToSupabase.js --sources=arxiv --max-results=5 --verbose",
+    "test-github": "node scripts/collectDataToSupabase.js --sources=github --max-results=3 --verbose",
+    "test-github-actions": "node scripts/test-github-actions.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",

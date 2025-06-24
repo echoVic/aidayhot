@@ -1,0 +1,97 @@
+name: AI 日报数据收集
+
+on:
+  # 定时任务：每天早上8点和晚上8点 (北京时间)
+  schedule:
+    - cron: '0 0 * * *'    # 早上8点北京时间 (UTC 0点)
+    - cron: '0 12 * * *'   # 晚上8点北京时间 (UTC 12点)
+  
+  # 允许手动触发
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: '指定爬取源 (arxiv,github,papers-with-code,stackoverflow,rss 或 all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - arxiv
+          - github
+          - papers-with-code
+          - stackoverflow
+          - rss
+      max_results:
+        description: '每个源的最大结果数'
+        required: false
+        default: '10'
+        type: string
+
+jobs:
+  collect-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: 安装依赖
+        run: |
+          npm ci
+          # 安装运行时需要的额外依赖
+          npm install axios cheerio rss-parser
+      
+      - name: 配置环境变量
+        run: |
+          echo "NODE_ENV=production" >> $GITHUB_ENV
+          echo "TZ=Asia/Shanghai" >> $GITHUB_ENV
+      
+      - name: 运行数据收集
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          node scripts/collectDataToSupabase.js \
+            --sources="${{ github.event.inputs.sources || 'all' }}" \
+            --max-results="${{ github.event.inputs.max_results || '10' }}" \
+            --timeout=25 \
+            --verbose
+      
+      - name: 生成执行报告
+        if: always()
+        run: |
+          echo "## 🤖 AI日报数据收集报告" > report.md
+          echo "" >> report.md
+          echo "**执行时间**: $(date '+%Y-%m-%d %H:%M:%S %Z')" >> report.md
+          echo "**触发方式**: ${{ github.event_name }}" >> report.md
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "**指定源**: ${{ github.event.inputs.sources || 'all' }}" >> report.md
+            echo "**最大结果数**: ${{ github.event.inputs.max_results || '10' }}" >> report.md
+          fi
+          echo "**执行状态**: ${{ job.status }}" >> report.md
+          echo "" >> report.md
+          
+          if [ -f collection_log.txt ]; then
+            echo "### 📊 收集统计" >> report.md
+            echo '```' >> report.md
+            cat collection_log.txt >> report.md
+            echo '```' >> report.md
+          fi
+          
+          cat report.md
+      
+      - name: 发送通知 (失败时)
+        if: failure()
+        run: |
+          echo "❌ 数据收集任务失败"
+          echo "请检查 GitHub Actions 日志获取详细信息"
+          echo "失败时间: $(date '+%Y-%m-%d %H:%M:%S %Z')" 
