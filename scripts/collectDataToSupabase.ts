@@ -19,25 +19,25 @@ interface SourceConfig {
 
 const SOURCE_CONFIGS: Record<string, SourceConfig> = {
   'arxiv': { 
-    maxResults: 18,        // ✅ 工作正常 - 学术论文，质量高
+    maxResults: 20,        // ✅ 工作正常 - 学术论文，质量高
     timeout: 10,
     priority: 'high',
     status: 'working',
     description: '📚 学术论文 - 高质量研究内容'
   },
   'github': { 
-    maxResults: 12,        // ✅ 工作正常 - 开源项目
+    maxResults: 15,        // ✅ 工作正常 - 开源项目
     timeout: 10,
     priority: 'high',
     status: 'working',
     description: '🐙 开源项目 - 热门AI/ML项目'
   },
   'rss': { 
-    maxResults: 25,        // ⚠️ 部分RSS源可能不稳定，但总体可用
-    timeout: 12,
+    maxResults: 60,        // 🚀 RSS源权重大幅提升 - 大量优质RSS源已验证可用
+    timeout: 15,
     priority: 'high',
-    status: 'partial',     // 使用更可靠的RSS源
-    description: '📰 技术博客 - 丰富的技术观点和趋势'
+    status: 'working',     // 使用got+fast-xml-parser已解决解析问题
+    description: '📰 技术博客 - 丰富的技术观点和趋势 (高权重)'
   },
   'papers-with-code': { 
     maxResults: 5,         // ❌ API不稳定 - 减少依赖
@@ -413,8 +413,8 @@ async function collectData(): Promise<void> {
             const feedResults = await crawler.fetchMultipleRSSFeeds(rssFeeds);
             
             for (const [feedName, feedResult] of Object.entries(feedResults) as [string, any][]) {
-              if (feedResult.success && feedResult.items) {
-                let items = feedResult.items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
+              if (feedResult.success && feedResult.data && feedResult.data.items) {
+                let items = feedResult.data.items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
                 
                 // 如果启用了时间过滤，过滤RSS条目
                 if (fromTime) {
