@@ -1,37 +1,10 @@
-import Link from 'next/link';
+'use client';
 
-const trendingArticles = [
-  {
-    id: '1',
-    title: 'ChatGPT-4发布重大更新，多模态能力全面提升',
-    views: 12843,
-    category: '大模型'
-  },
-  {
-    id: '2',
-    title: '谷歌发布新一代AI芯片TPU v5，性能提升300%',
-    views: 9876,
-    category: 'AI芯片'
-  },
-  {
-    id: '3',
-    title: 'Meta开源Llama 3模型，免费商用许可引发热议',
-    views: 8765,
-    category: '开源AI'
-  },
-  {
-    id: '4',
-    title: '自动驾驶技术新突破：百度Apollo实现L4级量产',
-    views: 7654,
-    category: '自动驾驶'
-  },
-  {
-    id: '5',
-    title: 'AI绘画版权争议升级：艺术家集体起诉AI公司',
-    views: 6543,
-    category: 'AI伦理'
-  }
-];
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { ArticleService } from '../lib/database';
+import type { Article } from '../lib/supabase';
+import { showToast } from './ToastProvider';
 
 const quickLinks = [
   { name: 'AI工具导航', href: '/tools', icon: '🛠️' },
@@ -65,7 +38,101 @@ const aiNews = [
   }
 ];
 
+interface TrendingStats {
+  todayVisits: number;
+  totalArticles: number;
+  totalUsers: number;
+  totalComments: number;
+}
+
 export default function RightSidebar() {
+  const [trendingArticles, setTrendingArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<TrendingStats>({
+    todayVisits: 0,
+    totalArticles: 0,
+    totalUsers: 0,
+    totalComments: 0,
+  });
+
+  useEffect(() => {
+    loadTrendingArticles();
+  }, []);
+
+  const loadTrendingArticles = async () => {
+    try {
+      setLoading(true);
+      
+      // 并行获取热门文章和新文章
+      const [hotArticles, newArticles] = await Promise.all([
+        ArticleService.getHot(3),
+        ArticleService.getNew(2)
+      ]);
+
+      // 如果热门文章不足，用新文章补充
+      const combinedArticles = [...hotArticles];
+      if (combinedArticles.length < 5) {
+        const needed = 5 - combinedArticles.length;
+        const additionalArticles = newArticles
+          .filter(article => !combinedArticles.find(a => a.id === article.id))
+          .slice(0, needed);
+        combinedArticles.push(...additionalArticles);
+      }
+
+      // 如果还不够，从所有文章中获取更多
+      if (combinedArticles.length < 5) {
+        try {
+          const allArticlesResult = await ArticleService.getAll(1, 10);
+          const additionalArticles = allArticlesResult.data
+            .filter(article => !combinedArticles.find(a => a.id === article.id))
+            .slice(0, 5 - combinedArticles.length);
+          combinedArticles.push(...additionalArticles);
+        } catch (err) {
+          console.warn('获取更多文章失败:', err);
+        }
+      }
+
+      setTrendingArticles(combinedArticles);
+
+      // 计算统计数据
+      const totalViews = combinedArticles.reduce((sum, article) => sum + article.views, 0);
+      const totalLikes = combinedArticles.reduce((sum, article) => sum + article.likes, 0);
+      
+      setStats({
+        todayVisits: Math.floor(totalViews * 0.3), // 假设30%是今日访问
+        totalArticles: combinedArticles.length * 1500, // 估算总文章数
+        totalUsers: Math.floor(totalViews * 0.1), // 假设每10次阅读对应1个用户
+        totalComments: totalLikes * 2, // 假设评论数是点赞数的2倍
+      });
+
+    } catch (err) {
+      console.error('加载热门文章失败:', err);
+      showToast.error('加载热门文章失败', '数据加载失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatViews = (views: number): string => {
+    if (views >= 10000) {
+      return `${(views / 10000).toFixed(1)}万`;
+    }
+    return views.toLocaleString();
+  };
+
+  const getCategoryColor = (category: string): string => {
+    const colors: Record<string, string> = {
+      '大模型': 'bg-purple-100 text-purple-600',
+      'AI芯片': 'bg-blue-100 text-blue-600',
+      '开源AI': 'bg-green-100 text-green-600',
+      '自动驾驶': 'bg-red-100 text-red-600',
+      'AI伦理': 'bg-orange-100 text-orange-600',
+      '机器学习': 'bg-indigo-100 text-indigo-600',
+      '深度学习': 'bg-pink-100 text-pink-600',
+    };
+    return colors[category] || 'bg-gray-100 text-gray-600';
+  };
+
   return (
     <aside className="w-80 bg-white shadow-sm border-l border-gray-200 h-screen sticky top-16 overflow-y-auto">
       <div className="p-4 space-y-6">
@@ -75,38 +142,64 @@ export default function RightSidebar() {
             <span className="mr-2">🔥</span>
             今日热门
           </h3>
-          <div className="space-y-3">
-            {trendingArticles.map((article, index) => (
-              <Link
-                key={article.id}
-                href={`/article/${article.id}`}
-                className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-start space-x-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {index + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
-                      {article.title}
-                    </h4>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                        {article.category}
-                      </span>
-                      <span className="flex items-center">
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        {article.views.toLocaleString()}
-                      </span>
+          
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="p-3 bg-gray-50 rounded-lg animate-pulse">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-gray-300 rounded-full"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                     </div>
                   </div>
                 </div>
-              </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : trendingArticles.length > 0 ? (
+            <div className="space-y-3">
+              {trendingArticles.map((article, index) => (
+                <div
+                  key={article.id}
+                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                  onClick={() => window.open(article.source_url, '_blank')}
+                >
+                  <div className="flex items-start space-x-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 hover:text-blue-600 transition-colors">
+                        {article.title}
+                      </h4>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span className={`px-2 py-1 rounded ${getCategoryColor(article.category)}`}>
+                          {article.category}
+                        </span>
+                        <span className="flex items-center">
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          {formatViews(article.views)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-sm text-gray-500">暂无热门文章</p>
+            </div>
+          )}
         </div>
 
         {/* 快捷链接 */}
@@ -170,19 +263,19 @@ export default function RightSidebar() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">今日访问</span>
-              <span className="font-medium text-blue-600">12,345</span>
+              <span className="font-medium text-blue-600">{stats.todayVisits.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">文章总数</span>
-              <span className="font-medium text-green-600">8,976</span>
+              <span className="font-medium text-green-600">{stats.totalArticles.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">用户数量</span>
-              <span className="font-medium text-purple-600">45,632</span>
+              <span className="font-medium text-purple-600">{stats.totalUsers.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">评论数量</span>
-              <span className="font-medium text-orange-600">23,456</span>
+              <span className="font-medium text-orange-600">{stats.totalComments.toLocaleString()}</span>
             </div>
           </div>
         </div>

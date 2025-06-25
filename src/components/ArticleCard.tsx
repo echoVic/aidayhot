@@ -25,6 +25,45 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
     }
   };
 
+  // 安全地获取文本值
+  const getTextValue = (value: any): string => {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return String(value);
+    }
+    if (typeof value === 'object' && value !== null) {
+      // 处理可能的对象格式
+      if (value.text) return String(value.text);
+      if (value.value) return String(value.value);
+      if (value['#text']) return String(value['#text']);
+      if (Array.isArray(value) && value.length > 0) {
+        return getTextValue(value[0]);
+      }
+    }
+    return String(value || '');
+  };
+
+  // 格式化标签显示
+  const formatTag = (tag: any): string => {
+    if (typeof tag === 'string') {
+      return tag;
+    }
+    if (typeof tag === 'object' && tag !== null) {
+      // 处理 RSS/XML 解析产生的对象格式
+      if (tag['@_term']) return tag['@_term'];
+      if (tag.term) return tag.term;
+      if (tag.name) return tag.name;
+      if (tag.value) return tag.value;
+      // 如果是数组，取第一个元素
+      if (Array.isArray(tag) && tag.length > 0) {
+        return formatTag(tag[0]);
+      }
+    }
+    return String(tag);
+  };
+
   // 格式化数字显示
   const formatNumber = (num: number) => {
     if (num >= 1000) {
@@ -59,7 +98,7 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
                   onClick={handleClick}
                   className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2"
                 >
-                  {article.title}
+                  {getTextValue(article.title)}
                 </Link>
                 {article.is_hot && (
                   <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-600 bg-red-100 rounded-full">
@@ -75,17 +114,17 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
               
               {/* 摘要 */}
               <p className="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">
-                {article.summary}
+                {getTextValue(article.summary)}
               </p>
               
               {/* 标签 */}
               <div className="flex flex-wrap gap-2 mb-3">
-                {article.tags?.slice(0, 3).map((tag) => (
+                {article.tags?.slice(0, 3).map((tag, index) => (
                   <span
-                    key={tag}
+                    key={`tag-${index}-${formatTag(tag)}`}
                     className="inline-flex items-center px-2 py-1 text-xs text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 cursor-pointer"
                   >
-                    #{tag}
+                    #{formatTag(tag)}
                   </span>
                 ))}
               </div>
@@ -97,7 +136,7 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <span>{article.author}</span>
+                    <span>{getTextValue(article.author)}</span>
                   </span>
                   <span className="flex items-center space-x-1">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,7 +144,7 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
                     </svg>
                     <span>{formatDate(article.publish_time)}</span>
                   </span>
-                  <span>{article.read_time} 阅读</span>
+                  <span>{getTextValue(article.read_time)} 阅读</span>
                 </div>
                 <div className="flex items-center space-x-3">
                   <span className="flex items-center space-x-1">
@@ -160,9 +199,9 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
         {/* 分类 */}
         <div className="flex items-center justify-between mb-3">
           <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-md">
-            {article.category}
+            {getTextValue(article.category)}
           </span>
-          <span className="text-xs text-gray-500">{article.read_time} 阅读</span>
+          <span className="text-xs text-gray-500">{getTextValue(article.read_time)} 阅读</span>
         </div>
         
         {/* 标题 */}
@@ -173,22 +212,22 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
           onClick={handleClick}
           className="block text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors mb-3 line-clamp-2"
         >
-          {article.title}
+          {getTextValue(article.title)}
         </a>
         
         {/* 摘要 */}
         <p className="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-3">
-          {article.summary}
+          {getTextValue(article.summary)}
         </p>
         
         {/* 标签 */}
         <div className="flex flex-wrap gap-2 mb-4">
-          {article.tags?.slice(0, 3).map((tag) => (
+          {article.tags?.slice(0, 3).map((tag, index) => (
             <span
-              key={tag}
+              key={`grid-tag-${index}-${formatTag(tag)}`}
               className="inline-flex items-center px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 cursor-pointer"
             >
-              #{tag}
+              #{formatTag(tag)}
             </span>
           ))}
         </div>
@@ -199,7 +238,7 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <span>{article.author}</span>
+            <span>{getTextValue(article.author)}</span>
             <span>•</span>
             <span>{formatDate(article.publish_time)}</span>
           </div>

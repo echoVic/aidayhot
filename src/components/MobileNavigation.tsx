@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { CategoryService } from '../lib/database';
 import type { Category } from '../lib/supabase';
 
@@ -153,9 +152,9 @@ export default function MobileNavigation({
             </div>
             
             <div className="p-4 space-y-2">
-              {categories.map((category) => (
+              {categories.map((category, index) => (
                 <button
-                  key={category.name}
+                  key={category.id || `mobile-category-${index}`}
                   onClick={() => handleCategorySelect(category.name)}
                   className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
                     currentCategory === category.name 

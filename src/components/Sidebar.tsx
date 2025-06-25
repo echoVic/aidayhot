@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { CategoryService, RealtimeService } from '../lib/database';
 import type { Category } from '../lib/supabase';
@@ -19,7 +18,11 @@ const categoryIcons: Record<string, string> = {
   '开源AI': '🔓',
   'AI绘画': '🎨',
   '办公AI': '💼',
-  '科学AI': '🔬'
+  '科学AI': '🔬',
+  '人工智能': '🧠',
+  'GitHub仓库': '📁',
+  'AI博客': '📁',
+  '技术新闻': '📁'
 };
 
 const hotTopics = [
@@ -33,7 +36,12 @@ const hotTopics = [
   { name: '图像识别', count: 32 },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  currentCategory?: string;
+  onCategoryChange: (category: string) => void;
+}
+
+export default function Sidebar({ currentCategory = '全部', onCategoryChange }: SidebarProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -63,7 +71,15 @@ export default function Sidebar() {
     try {
       setLoading(true);
       const data = await CategoryService.getAll();
-      setCategories(data || []);
+      
+      // 排序分类，确保"全部"在第一位，其他按名称排序
+      const sortedCategories = (data || []).sort((a, b) => {
+        if (a.name === '全部') return -1;
+        if (b.name === '全部') return 1;
+        return a.name.localeCompare(b.name, 'zh-CN');
+      });
+      
+      setCategories(sortedCategories);
       
       // 计算统计数据
       const totalArticles = data?.reduce((sum, cat) => sum + cat.count, 0) || 0;
@@ -77,6 +93,10 @@ export default function Sidebar() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCategoryClick = (categoryName: string) => {
+    onCategoryChange(categoryName);
   };
 
   if (loading) {
@@ -105,22 +125,30 @@ export default function Sidebar() {
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">内容分类</h3>
           <nav className="space-y-1">
-            {categories.map((category) => (
-              <Link
-                key={category.name}
-                href={category.href}
-                className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-100 hover:text-blue-600 transition-colors group"
+            {categories.map((category, index) => (
+              <button
+                key={category.id || `category-${index}`}
+                onClick={() => handleCategoryClick(category.name)}
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-gray-100 transition-colors group ${
+                  currentCategory === category.name
+                    ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                    : 'text-gray-700 hover:text-blue-600'
+                }`}
               >
                 <div className="flex items-center space-x-3">
                   <span className="text-lg group-hover:scale-110 transition-transform">
                     {categoryIcons[category.name] || '📁'}
                   </span>
-                  <span>{category.name}</span>
+                  <span className="font-medium">{category.name}</span>
                 </div>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full group-hover:bg-blue-100 transition-colors">
+                <span className={`text-xs px-2 py-1 rounded-full group-hover:bg-blue-100 transition-colors ${
+                  currentCategory === category.name
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'text-gray-500 bg-gray-100'
+                }`}>
                   {category.count}
                 </span>
-              </Link>
+              </button>
             ))}
           </nav>
         </div>

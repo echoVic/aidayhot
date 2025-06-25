@@ -1,6 +1,7 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import ToastProvider from '../components/ToastProvider';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,6 +24,21 @@ export const metadata: Metadata = {
     ],
     apple: { url: '/favicon.svg', type: 'image/svg+xml' },
   },
+  keywords: 'AI, 人工智能, 机器学习, 深度学习, ChatGPT, OpenAI',
+  authors: [{ name: 'AI每日热点团队' }],
+  viewport: 'width=device-width, initial-scale=1',
+  openGraph: {
+    title: 'AI每日热点',
+    description: '人工智能资讯聚合平台',
+    type: 'website',
+    locale: 'zh_CN',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AI每日热点',
+    description: '人工智能资讯聚合平台',
+  },
+  robots: 'index, follow',
 };
 
 export default function RootLayout({
@@ -36,6 +52,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <ToastProvider />
         <Analytics />
       </body>
     </html>

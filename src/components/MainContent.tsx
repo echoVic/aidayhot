@@ -5,7 +5,7 @@ import { ArticleService, RealtimeService, type PaginatedResult } from '../lib/da
 import type { Article } from '../lib/supabase';
 import ArticleCard from './ArticleCard';
 import { DataLoadError } from './ErrorBoundary';
-import { ToastContainer, useToast } from './Toast';
+import { showToast } from './ToastProvider';
 
 interface MainContentProps {
   searchQuery?: string;
@@ -26,13 +26,11 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
     hasMore: false
   });
 
-  const { toasts, removeToast, showSuccess, showError, showWarning, showInfo } = useToast();
-
   // 使用常量避免依赖循环
   const PAGE_SIZE = 20;
 
   // 加载文章数据
-  const loadArticles = useCallback(async (page = 1, append = false, showToast = true) => {
+  const loadArticles = useCallback(async (page = 1, append = false, showToastMessage = true) => {
     try {
       if (page === 1) {
         setLoading(true);
@@ -67,18 +65,16 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
         hasMore: result.hasMore
       });
 
-      // 使用回调方式调用 toast 避免依赖循环
-      if (showToast && page === 1 && result.data.length > 0) {
-        setTimeout(() => showSuccess('数据加载成功', `共找到 ${result.total} 篇文章`), 0);
+      if (showToastMessage && page === 1 && result.data.length > 0) {
+        showToast.success(`共找到 ${result.total} 篇文章`, '数据加载成功');
       }
 
     } catch (err) {
       console.error('加载文章失败:', err);
       const errorMessage = err instanceof Error ? err.message : '加载文章失败，请稍后重试';
       setError(errorMessage);
-      // 使用回调方式调用 toast 避免依赖循环
-      if (showToast) {
-        setTimeout(() => showError('加载失败', errorMessage), 0);
+      if (showToastMessage) {
+        showToast.error(errorMessage, '加载失败');
       }
     } finally {
       setLoading(false);
@@ -107,7 +103,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   useEffect(() => {
     const subscription = RealtimeService.subscribeToArticles((payload) => {
       console.log('文章数据变化:', payload);
-      setTimeout(() => showInfo('数据更新', '检测到新内容，正在刷新...'), 0);
+      showToast.info('检测到新内容，正在刷新...', '数据更新');
       // 重新加载数据，不显示 toast 避免循环
       loadArticles(1, false, false);
     });
@@ -143,7 +139,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
       ));
     } catch (err) {
       console.error('更新浏览量失败:', err);
-      setTimeout(() => showWarning('操作失败', '无法更新浏览量'), 0);
+      showToast.warning('无法更新浏览量', '操作失败');
     }
   }, []);
 
@@ -166,7 +162,6 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   if (error && articles.length === 0) {
     return (
       <main className="flex-1 bg-gray-50 p-6">
-        <ToastContainer toasts={toasts} onClose={removeToast} />
         <DataLoadError onRetry={resetAndReload} />
       </main>
     );
@@ -174,8 +169,6 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
 
   return (
     <main className="flex-1 bg-gray-50 p-6">
-      <ToastContainer toasts={toasts} onClose={removeToast} />
-
       {/* 工具栏 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex items-center justify-between">
@@ -198,19 +191,19 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
                 className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="latest">最新发布</option>
-                <option value="popular">热门阅读</option>
-                <option value="trending">热门点赞</option>
+                <option value="popular">热门文章</option>
+                <option value="trending">趋势热点</option>
               </select>
             </div>
 
             {/* 视图模式切换 */}
-            <div className="flex items-center border border-gray-300 rounded-lg">
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-l-lg transition-colors ${
+                className={`p-2 rounded-md transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -219,10 +212,10 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-r-lg transition-colors ${
+                className={`p-2 rounded-md transition-colors ${
                   viewMode === 'list'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,108 +227,61 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
         </div>
       </div>
 
-      {/* 热门推荐横幅 */}
-      {!searchQuery && !category && (
-        <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-lg p-6 mb-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold mb-2">🔥 今日热门推荐</h3>
-              <p className="text-blue-100 mb-4">
-                精选最新AI资讯，助您把握行业动态
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {['ChatGPT', 'Stable Diffusion', 'AI芯片', '自动驾驶'].map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-white/20 text-white px-3 py-1 rounded-full text-sm cursor-pointer hover:bg-white/30 transition-colors"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="hidden md:block">
-              <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-3xl">🚀</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 文章列表 */}
       {sortedArticles.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">暂无相关文章</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {searchQuery ? '没有找到相关文章' : '暂无文章'}
+          </h3>
           <p className="text-gray-500">
-            {searchQuery ? '尝试使用其他关键词搜索' : '该分类下暂无文章内容'}
+            {searchQuery ? '请尝试其他关键词或检查拼写' : '数据正在收集中，请稍后刷新页面'}
           </p>
         </div>
       ) : (
-        <div
-          className={
-            viewMode === 'grid'
-              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+        <>
+          <div className={`${
+            viewMode === 'grid' 
+              ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' 
               : 'space-y-4'
-          }
-        >
-          {sortedArticles.map((article) => (
-            <ArticleCard
-              key={article.id}
-              article={article}
-              layout={viewMode}
-              onClick={() => handleArticleClick(article.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 加载更多按钮 */}
-      {sortedArticles.length > 0 && pagination.hasMore && (
-        <div className="mt-8 text-center">
-          <button
-            onClick={loadMoreArticles}
-            disabled={loadingMore}
-            className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors inline-flex items-center space-x-2"
-          >
-            {loadingMore ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>加载中...</span>
-              </>
-            ) : (
-              <>
-                <span>加载更多文章</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
-              </>
-            )}
-          </button>
-
-          <p className="text-sm text-gray-500 mt-2">
-            已显示 {sortedArticles.length} / {pagination.total} 篇文章
-          </p>
-        </div>
-      )}
-
-      {/* 已加载完所有内容的提示 */}
-      {sortedArticles.length > 0 && !pagination.hasMore && pagination.total > pagination.pageSize && (
-        <div className="mt-8 text-center">
-          <div className="inline-flex items-center space-x-2 text-gray-500 text-sm">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>已显示全部 {pagination.total} 篇文章</span>
+          }`}>
+            {sortedArticles.map((article) => (
+                             <ArticleCard 
+                 key={article.id} 
+                 article={article} 
+                 layout={viewMode}
+                 onClick={() => handleArticleClick(article.id)}
+               />
+            ))}
           </div>
-        </div>
+
+          {/* 加载更多按钮 */}
+          {pagination.hasMore && (
+            <div className="mt-8 text-center">
+              <button
+                onClick={loadMoreArticles}
+                disabled={loadingMore}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loadingMore ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    加载中...
+                  </>
+                ) : (
+                  '加载更多'
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </main>
   );
