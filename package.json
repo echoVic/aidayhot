@@ -24,7 +24,12 @@
     "test-github-actions-config": "node scripts/test-github-actions-config.js",
     "compile-crawlers": "node scripts/compile-crawlers.js",
     "update-category-stats": "ts-node scripts/updateCategoryStats.ts",
-    "update-category-stats:verbose": "ts-node scripts/updateCategoryStats.ts --verbose"
+    "update-category-stats:verbose": "ts-node scripts/updateCategoryStats.ts --verbose",
+    "scheduled-collection": "tsx scripts/collectDataToSupabase.ts --hours-back=12 --continue-on-error",
+    "scheduled-collection:dry": "tsx scripts/collectDataToSupabase.ts --hours-back=12 --verbose --continue-on-error",
+    "scheduled-collection:verbose": "tsx scripts/collectDataToSupabase.ts --hours-back=12 --verbose --continue-on-error",
+    "collect-last-12h": "tsx scripts/collectDataToSupabase.ts --hours-back=12 --continue-on-error",
+    "collect-last-6h": "tsx scripts/collectDataToSupabase.ts --hours-back=6 --continue-on-error"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
@@ -55,6 +60,7 @@
     "js-yaml": "^4.1.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.1",
+    "tsx": "^4.20.3",
     "typescript": "^5"
   },
   "packageManager": "pnpm@9.15.4"

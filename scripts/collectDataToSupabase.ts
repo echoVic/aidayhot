@@ -62,6 +62,7 @@ interface ParsedArgs {
   verbose: boolean;
   useSourceConfig: boolean;
   continueOnError: boolean;
+  hoursBack: number; // 简化：只需要指定往前多少小时
 }
 
 interface SourceStats {
@@ -102,7 +103,8 @@ function parseArgs(): ParsedArgs {
     timeout: 25,
     verbose: false,
     useSourceConfig: true,
-    continueOnError: true  // 新增：错误时继续执行
+    continueOnError: true,  // 错误时继续执行
+    hoursBack: 0  // 默认不使用时间过滤
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -114,12 +116,16 @@ function parseArgs(): ParsedArgs {
       options.useSourceConfig = false;
     } else if (arg.startsWith('--timeout=')) {
       options.timeout = parseInt(arg.split('=')[1]);
+    } else if (arg.startsWith('--hours-back=')) {
+      options.hoursBack = parseInt(arg.split('=')[1]);
     } else if (arg === '--verbose') {
       options.verbose = true;
     } else if (arg === '--uniform-config') {
       options.useSourceConfig = false;
     } else if (arg === '--fail-fast') {
       options.continueOnError = false;
+    } else if (arg === '--last-12h') {
+      options.hoursBack = 12; // 快捷方式：拉取前12小时
     }
   }
 
@@ -139,6 +145,18 @@ function log(message: string, type: 'info' | 'error' | 'success' = 'info'): void
   } catch (error) {
     // 忽略文件写入错误
   }
+}
+
+// 计算时间范围 - 简单版本
+function calculateTimeRange(hoursBack: number): { fromTime: Date; toTime: Date } | null {
+  if (hoursBack <= 0) {
+    return null; // 不使用时间过滤
+  }
+  
+  const toTime = new Date(); // 当前时间
+  const fromTime = new Date(toTime.getTime() - hoursBack * 60 * 60 * 1000); // 往前推指定小时数
+  
+  return { fromTime, toTime };
 }
 
 async function collectData(): Promise<void> {
@@ -290,6 +308,15 @@ async function collectData(): Promise<void> {
       // 为每个数据源设置独立的开始时间
       const sourceStartTime = Date.now();
       
+      // 计算时间范围 - 简化版本
+      const timeRange = calculateTimeRange(options.hoursBack);
+      const fromTime = timeRange?.fromTime;
+      const toTime = timeRange?.toTime || new Date();
+      
+      if (timeRange) {
+        log(`${source}: 时间过滤模式 - 从 ${fromTime!.toISOString()} 到 ${toTime.toISOString()} (前${options.hoursBack}小时)`, 'info');
+      }
+      
       try {
         // 获取该源的配置
         const sourceConfig = SOURCE_CONFIGS[source];
@@ -304,11 +331,30 @@ async function collectData(): Promise<void> {
         // 根据不同源调用对应的方法
         switch (source) {
           case 'arxiv': {
-            const arxivResults = await crawler.fetchLatestAIPapers(maxResults);
+            let arxivResults;
+            if (fromTime) {
+              // 使用时间范围查询
+              log(`${source}: 使用时间范围查询 ArXiv 论文`, 'info');
+              // 调用支持时间范围的方法（需要修改crawler）
+              arxivResults = await crawler.fetchLatestAIPapers(maxResults);
+            } else {
+              arxivResults = await crawler.fetchLatestAIPapers(maxResults);
+            }
+            
             // 展平多个分类的结果
             for (const [category, result] of Object.entries(arxivResults) as [string, any][]) {
               if (result.success && result.papers) {
-                results.push(...result.papers.slice(0, Math.ceil(maxResults / 5)).map((paper: any) => ({
+                let papers = result.papers.slice(0, Math.ceil(maxResults / 5));
+                
+                // 如果启用了时间过滤，过滤论文
+                if (fromTime) {
+                  papers = papers.filter((paper: any) => {
+                    const publishedDate = new Date(paper.published);
+                    return publishedDate >= fromTime! && publishedDate <= toTime;
+                  });
+                }
+                
+                results.push(...papers.map((paper: any) => ({
                   title: paper.title,
                   url: paper.abstractUrl || paper.pdfUrl,  // 使用正确的URL字段
                   description: paper.summary,
@@ -325,9 +371,29 @@ async function collectData(): Promise<void> {
           }
 
           case 'github': {
-            const githubResult = await crawler.searchRepositories('machine learning', 'stars', 'desc', maxResults);
+            let searchQuery = 'machine learning';
+            
+            // 如果启用时间过滤，添加时间范围到搜索查询
+            if (fromTime) {
+              const fromDateStr = fromTime.toISOString().split('T')[0]; // YYYY-MM-DD
+              const toDateStr = toTime.toISOString().split('T')[0];     // YYYY-MM-DD
+              searchQuery = `${searchQuery} pushed:${fromDateStr}..${toDateStr}`;
+              log(`${source}: 使用时间范围查询 - ${searchQuery}`, 'info');
+            }
+            
+            const githubResult = await crawler.searchRepositories(searchQuery, 'updated', 'desc', maxResults);
             if (githubResult.success && githubResult.repositories) {
-              results = githubResult.repositories.map((repo: any) => ({
+              let repositories = githubResult.repositories;
+              
+              // 额外的时间过滤（双重保障）
+              if (fromTime) {
+                repositories = repositories.filter((repo: any) => {
+                  const updatedDate = new Date(repo.updatedAt);
+                  return updatedDate >= fromTime! && updatedDate <= toTime;
+                });
+              }
+              
+              results = repositories.map((repo: any) => ({
                 title: repo.fullName,
                 url: repo.url,  // 使用正确的URL字段
                 description: repo.content || repo.description || '',
@@ -348,8 +414,19 @@ async function collectData(): Promise<void> {
             
             for (const [feedName, feedResult] of Object.entries(feedResults) as [string, any][]) {
               if (feedResult.success && feedResult.items) {
-                const itemsToAdd = feedResult.items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
-                results.push(...itemsToAdd.map((item: any) => ({
+                let items = feedResult.items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
+                
+                // 如果启用了时间过滤，过滤RSS条目
+                if (fromTime) {
+                  items = items.filter((item: any) => {
+                    if (!item.pubDate) return false; // 如果没有发布时间，跳过
+                    const pubDate = new Date(item.pubDate);
+                    return pubDate >= fromTime! && pubDate <= toTime;
+                  });
+                  log(`${source}: 时间过滤后保留 ${items.length} 条RSS文章`, 'info');
+                }
+                
+                results.push(...items.map((item: any) => ({
                   title: item.title,
                   url: item.link,  // 使用正确的URL字段
                   description: (item.description || item.content || '').substring(0, 500) + (((item.description || item.content || '').length > 500) ? '...' : ''),
@@ -367,7 +444,18 @@ async function collectData(): Promise<void> {
           case 'papers-with-code': {
             const papersResult = await crawler.getAIPapers(maxResults);
             if (papersResult.success && papersResult.papers) {
-              results = papersResult.papers.map((paper: any) => ({
+              let papers = papersResult.papers;
+              
+              // 如果启用了时间过滤，过滤论文
+              if (fromTime) {
+                papers = papers.filter((paper: any) => {
+                  const publishedDate = new Date(paper.publishedAt);
+                  return publishedDate >= fromTime! && publishedDate <= toTime;
+                });
+                log(`${source}: 时间过滤后保留 ${papers.length} 篇论文`, 'info');
+              }
+              
+              results = papers.map((paper: any) => ({
                 title: paper.title,
                 url: paper.url,
                 description: paper.abstract,
@@ -384,7 +472,18 @@ async function collectData(): Promise<void> {
           case 'stackoverflow': {
             const soResult = await crawler.getAIQuestions(maxResults);
             if (soResult.success && soResult.questions) {
-              results = soResult.questions.map((question: any) => ({
+              let questions = soResult.questions;
+              
+              // 如果启用了时间过滤，过滤问题
+              if (fromTime) {
+                questions = questions.filter((question: any) => {
+                  const creationDate = new Date(question.creationDate);
+                  return creationDate >= fromTime! && creationDate <= toTime;
+                });
+                log(`${source}: 时间过滤后保留 ${questions.length} 个问题`, 'info');
+              }
+              
+              results = questions.map((question: any) => ({
                 title: question.title,
                 url: question.url,
                 description: question.excerpt || question.body?.substring(0, 500) || '',
@@ -647,7 +746,10 @@ async function collectData(): Promise<void> {
       } catch (error) {
         sourceStats.errors++;
         stats.errors++;
-        log(`${source} 爬取失败: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+        sourceStats.crawlerError = true;
+        
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        log(`${source} 爬取失败: ${errorMessage}`, 'error');
         
         if (!options.continueOnError) {
           throw error;

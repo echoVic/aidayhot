@@ -45,6 +45,11 @@ on:
         options:
           - 'true'
           - 'false'
+      hours_back:
+        description: '收集前N小时的数据 (0表示不使用时间过滤)'
+        required: false
+        default: '12'
+        type: number
       runner_type:
         description: 'Runner 类型选择'
         required: false
@@ -123,9 +128,9 @@ jobs:
         uses: actions/checkout@v4
       
       - name: 安装 pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          run_install: false
       
       - name: 设置 Node.js
         uses: actions/setup-node@v4
@@ -140,16 +145,12 @@ jobs:
           pnpm install
           echo "安装依赖完成时间: $(date)"
       
-      - name: 编译 TypeScript 脚本
+      - name: 检查脚本文件
         run: |
-          echo "开始编译 TypeScript 文件..."
-          rm -rf dist/scripts/
-          mkdir -p dist/scripts/
-          npx tsc scripts/collectDataToSupabase.ts --outDir dist/scripts --module commonjs --target es2020 --esModuleInterop true --allowSyntheticDefaultImports true --skipLibCheck true --declaration false
-          npx tsc scripts/updateCategoryStats.ts --outDir dist/scripts --module commonjs --target es2020 --esModuleInterop true --allowSyntheticDefaultImports true --skipLibCheck true --declaration false
-          echo "编译完成"
-          echo "检查编译输出:"
-          find dist/scripts/ -name "*.js" -type f
+          echo "检查 TypeScript 脚本文件..."
+          ls -la scripts/collectDataToSupabase.ts
+          ls -la scripts/updateCategoryStats.ts
+          echo "✅ 脚本文件确认存在"
       
       - name: 配置环境变量
         run: |
@@ -190,30 +191,27 @@ jobs:
           CURRENT_SOURCE="${{ matrix.source }}"
           USE_SOURCE_CONFIG="${{ github.event.inputs.use_source_config || 'true' }}"
           MAX_RESULTS="${{ github.event.inputs.max_results || '10' }}"
+          HOURS_BACK="${{ github.event.inputs.hours_back || '12' }}"
           
-          # 查找编译后的脚本文件
-          SCRIPT_FILE=$(find dist/scripts/ -name "collectDataToSupabase.js" -type f | head -1)
-          
-          if [ -z "$SCRIPT_FILE" ]; then
-            echo "❌ 未找到编译后的脚本文件"
-            exit 1
-          fi
-          
-          echo "✅ 找到脚本文件: $SCRIPT_FILE"
-          
-          CMD="node $SCRIPT_FILE"
+          # 使用tsx直接运行TypeScript脚本
+          CMD="npx tsx scripts/collectDataToSupabase.ts"
           CMD="$CMD --sources=$CURRENT_SOURCE"
           CMD="$CMD --timeout=20"
           CMD="$CMD --verbose"
+          CMD="$CMD --continue-on-error"
           
-          if [ "$USE_SOURCE_CONFIG" = "true" ]; then
-            CMD="$CMD --use-source-config"
-          else
-            CMD="$CMD --max-results=$MAX_RESULTS"
+          # 添加时间过滤功能
+          if [ "$HOURS_BACK" != "0" ]; then
+            CMD="$CMD --hours-back=$HOURS_BACK"
+            echo "🕐 启用时间过滤: 前 $HOURS_BACK 小时"
           fi
           
-          # 单个数据源失败不影响其他源（通过 strategy.fail-fast 控制）
-          CMD="$CMD --continue-on-error"
+          if [ "$USE_SOURCE_CONFIG" = "true" ]; then
+            echo "🎯 使用智能源配置"
+          else
+            CMD="$CMD --max-results=$MAX_RESULTS"
+            echo "📊 使用统一配置: $MAX_RESULTS 条结果"
+          fi
           
           echo "执行命令: $CMD"
           eval $CMD
@@ -227,16 +225,9 @@ jobs:
         run: |
           echo "开始更新分类统计..."
           
-          # 查找编译后的分类统计脚本
-          STATS_SCRIPT=$(find dist/scripts/ -name "updateCategoryStats.js" -type f | head -1)
-          
-          if [ -z "$STATS_SCRIPT" ]; then
-            echo "⚠️ 未找到分类统计脚本，跳过统计更新"
-          else
-            echo "✅ 找到分类统计脚本: $STATS_SCRIPT"
-            echo "执行分类统计更新..."
-            node $STATS_SCRIPT --verbose || echo "⚠️ 分类统计更新失败，但不影响主流程"
-          fi
+          # 直接使用tsx运行TypeScript脚本
+          echo "执行分类统计更新..."
+          npx tsx scripts/updateCategoryStats.ts --verbose || echo "⚠️ 分类统计更新失败，但不影响主流程"
       
       - name: 上传数据收集日志
         if: always()
