@@ -42,7 +42,7 @@ export class RSSCrawler extends BaseCrawler {
     });
   }
 
-  async crawl(url?: string, sourceInfo: { sourceId?: string } = {}): Promise<CrawlerResult<RSSFeed>> {
+  async crawl(url?: string, sourceInfo: { sourceId?: string; sourceName?: string; sourceCategory?: string } = {}): Promise<CrawlerResult<RSSFeed>> {
     try {
       if (!url) {
         throw new Error('RSS URL is required');
@@ -85,7 +85,7 @@ export class RSSCrawler extends BaseCrawler {
         throw new Error('无法识别的RSS/Atom格式');
       }
 
-      const items: RSSItem[] = this.parseItems(feedData, isAtom);
+      const items: RSSItem[] = this.parseItems(feedData, isAtom, sourceInfo);
       
       console.log(`RSS源标题: ${this.extractTitle(feedData, isAtom)}`);
       console.log(`获取到 ${items.length} 条内容`);
@@ -119,7 +119,7 @@ export class RSSCrawler extends BaseCrawler {
     }
   }
 
-  private parseItems(feedData: any, isAtom: boolean): RSSItem[] {
+  private parseItems(feedData: any, isAtom: boolean, sourceInfo?: { sourceName?: string; sourceCategory?: string }): RSSItem[] {
     const items: RSSItem[] = [];
     const itemArray = isAtom ? feedData.entry : feedData.item;
     
@@ -144,7 +144,9 @@ export class RSSCrawler extends BaseCrawler {
           guid: item.id || '',
           content: content,
           contentSnippet: this.stripHtml(content),
-          checksum: this.calculateChecksum(content)
+          checksum: this.calculateChecksum(content),
+          sourceName: sourceInfo?.sourceName,
+          sourceCategory: sourceInfo?.sourceCategory
         });
       } else {
         // RSS格式解析
@@ -162,7 +164,9 @@ export class RSSCrawler extends BaseCrawler {
           guid: item.guid || '',
           content: content,
           contentSnippet: this.stripHtml(content),
-          checksum: this.calculateChecksum(content)
+          checksum: this.calculateChecksum(content),
+          sourceName: sourceInfo?.sourceName,
+          sourceCategory: sourceInfo?.sourceCategory
         });
       }
     }

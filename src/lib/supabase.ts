@@ -22,6 +22,8 @@ export interface Article {
   is_new: boolean
   source_url?: string
   source_type?: string
+  source_name?: string
+  source_category?: string
   created_at?: string
   updated_at?: string
 }

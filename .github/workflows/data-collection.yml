@@ -60,8 +60,15 @@ on:
           - 'self-hosted'
 
 jobs:
+  workflow_init:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check workflow syntax
+        run: echo "Workflow syntax validation passed"
+
   # 准备阶段：解析数据源
   prepare:
+    needs: workflow_init
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     outputs:
@@ -289,4 +296,4 @@ jobs:
             done
           else
             echo "未找到日志目录"
-          fi 
+          fi

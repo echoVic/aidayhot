@@ -409,7 +409,38 @@ async function collectData(): Promise<void> {
           }
 
           case 'rss': {
-            const rssFeeds = crawler.getAIRSSFeeds();
+            if (!supabase) {
+              log('❌ [RSS] Supabase client not initialized, skipping.', 'error');
+              break;
+            }
+            log('📖 [RSS] 从数据库获取RSS源...', 'info');
+            const { data: feedSources, error: dbError } = await supabase
+              .from('feed_sources')
+              .select('name, url')
+              .eq('is_active', true);
+
+            if (dbError) {
+              log(`❌ [RSS] 获取RSS源失败: ${dbError.message}`, 'error');
+              sourceStats.crawlerError = true;
+              stats.errors++;
+              if (!options.continueOnError) throw dbError;
+              break;
+            }
+
+            if (!feedSources || feedSources.length === 0) {
+              log('ℹ️ [RSS] 数据库中没有找到活跃的RSS源。', 'info');
+              break;
+            }
+
+            log(`✅ [RSS] 成功获取 ${feedSources.length} 个活跃RSS源`, 'success');
+
+            const rssFeeds = feedSources.reduce((acc, source) => {
+              if (source.name && source.url) {
+                acc[source.name] = source.url;
+              }
+              return acc;
+            }, {} as Record<string, string>);
+
             const feedResults = await crawler.fetchMultipleRSSFeeds(rssFeeds);
             
             for (const [feedName, feedResult] of Object.entries(feedResults) as [string, any][]) {

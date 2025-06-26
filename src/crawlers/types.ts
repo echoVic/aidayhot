@@ -138,6 +138,8 @@ export interface RSSItem {
   content?: string;
   contentSnippet?: string;
   checksum: string;
+  sourceName?: string;
+  sourceCategory?: string;
 }
 
 export interface RSSFeed {

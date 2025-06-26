@@ -3,7 +3,7 @@ export const mockArticles = [
   {
     "id": "1",
     "title": "Preparing for future AI risks in biology",
-    "summary": "Advanced AI can transform biology and medicine—but also raises biosecurity risks. We’re proactively assessing capabilities and implementing safeguards to prevent misuse.",
+    "summary": "Advanced AI can transform biology and medicine—but also raises biosecurity risks. We're proactively assessing capabilities and implementing safeguards to prevent misuse.",
     "category": "机器学习",
     "author": "技术专家",
     "publishTime": "2025-06-18",
@@ -154,51 +154,46 @@ export const categories = [
   {
     "name": "全部",
     "href": "/",
-    "count": 400
+    "count": 286
   },
   {
-    "name": "大模型",
-    "href": "/category/llm",
-    "count": 20
+    "name": "AI/机器学习",
+    "href": "/category/ai-ml",
+    "count": 83
   },
   {
-    "name": "AI芯片",
-    "href": "/category/chip",
-    "count": 0
+    "name": "社交媒体",
+    "href": "/category/social",
+    "count": 95
   },
   {
-    "name": "自动驾驶",
-    "href": "/category/auto",
-    "count": 0
+    "name": "技术/开发",
+    "href": "/category/tech",
+    "count": 33
   },
   {
-    "name": "开源AI",
-    "href": "/category/opensource",
-    "count": 0
-  },
-  {
-    "name": "AI绘画",
-    "href": "/category/aiart",
+    "name": "新闻/资讯",
+    "href": "/category/news",
     "count": 12
   },
   {
-    "name": "办公AI",
-    "href": "/category/office",
-    "count": 0
+    "name": "播客",
+    "href": "/category/podcast",
+    "count": 17
   },
   {
-    "name": "科学AI",
-    "href": "/category/science",
-    "count": 0
+    "name": "设计/UX",
+    "href": "/category/design",
+    "count": 3
   },
   {
-    "name": "机器学习",
-    "href": "/category/ml",
-    "count": 180
+    "name": "学术/研究",
+    "href": "/category/academic",
+    "count": 1
   },
   {
-    "name": "计算机视觉",
-    "href": "/category/cv",
-    "count": 0
+    "name": "其他",
+    "href": "/category/other",
+    "count": 42
   }
 ];

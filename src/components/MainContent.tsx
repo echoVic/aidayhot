@@ -13,7 +13,7 @@ interface MainContentProps {
 }
 
 export default function MainContent({ searchQuery, category }: MainContentProps) {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'trending'>('latest');
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);

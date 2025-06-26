@@ -16,7 +16,7 @@ ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 CREATE TABLE IF NOT EXISTS public.categories (
   id BIGSERIAL PRIMARY KEY,
   name VARCHAR(50) NOT NULL UNIQUE,
-  href VARCHAR(100) NOT NULL,
+  href VARCHAR(100) NOT NULL UNIQUE,
   count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -91,7 +91,7 @@ CREATE OR REPLACE FUNCTION get_category_stats()
 RETURNS TABLE(category_name TEXT, article_count BIGINT) AS $$
 BEGIN
   RETURN QUERY
-  SELECT a.category, COUNT(*)
+  SELECT a.category::TEXT, COUNT(*)::BIGINT
   FROM articles a
   GROUP BY a.category;
 END;
@@ -158,14 +158,13 @@ FOR DELETE USING (auth.role() = 'service_role');
 -- 插入初始分类数据（如果不存在）
 INSERT INTO public.categories (name, href, count) 
 VALUES 
-  ('全部', '/', 400),
-  ('大模型', '/category/llm', 20),
-  ('AI芯片', '/category/chip', 0),
-  ('自动驾驶', '/category/auto', 0),
-  ('开源AI', '/category/opensource', 0),
-  ('AI绘画', '/category/aiart', 0),
-  ('办公AI', '/category/office', 0),
-  ('科学AI', '/category/science', 0),
-  ('机器学习', '/category/ml', 210),
-  ('计算机视觉', '/category/cv', 0)
-ON CONFLICT (name) DO NOTHING; 
+  ('全部', '/', 286),
+  ('AI/机器学习', '/category/ai-ml', 83),
+  ('社交媒体', '/category/social', 95),
+  ('技术/开发', '/category/tech', 33),
+  ('新闻/资讯', '/category/news', 12),
+  ('播客', '/category/podcast', 17),
+  ('设计/UX', '/category/design', 3),
+  ('学术/研究', '/category/academic', 1),
+  ('其他', '/category/other', 42)
+ON CONFLICT (name) DO NOTHING;

@@ -132,6 +132,14 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
               {/* 元信息 */}
               <div className="flex items-center justify-between text-xs text-gray-500">
                 <div className="flex items-center space-x-4">
+                  {article.source_name && (
+                    <span className="flex items-center space-x-1 bg-blue-50 text-blue-600 px-2 py-1 rounded">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+                      </svg>
+                      <span>{article.source_name}</span>
+                    </span>
+                  )}
                   <span className="flex items-center space-x-1">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -231,6 +239,18 @@ export default function ArticleCard({ article, layout = 'grid', onClick }: Artic
             </span>
           ))}
         </div>
+        
+        {/* 来源信息 */}
+        {article.source_name && (
+          <div className="mb-3">
+            <span className="inline-flex items-center space-x-1 bg-gray-100 text-gray-600 px-2 py-1 rounded-md text-xs">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+              </svg>
+              <span>{article.source_name}</span>
+            </span>
+          </div>
+        )}
         
         {/* 元信息 */}
         <div className="flex items-center justify-between text-xs text-gray-500 pt-4 border-t border-gray-100">
