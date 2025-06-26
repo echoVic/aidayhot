@@ -46,7 +46,7 @@ export class ArticleService {
 
     const offset = (page - 1) * pageSize;
 
-    // 并行查询总数和数据
+    // 现在articles表的category字段已经是标准分类名，可以直接查询
     const [countResult, dataResult] = await Promise.all([
       supabase.from('articles')
         .select('*', { count: 'exact', head: true })

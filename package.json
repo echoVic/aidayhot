@@ -12,7 +12,10 @@
     "import-rss": "tsx scripts/importRSSSourcesFromFile.ts",
     "collect-rss": "tsx scripts/collectRSSDataSimple.ts",
     "collect-data": "tsx scripts/collectDataToSupabase.ts",
-    "update-category-stats": "tsx scripts/updateCategoryStats.ts"
+    "update-category-stats": "tsx scripts/updateCategoryStats.ts",
+    "reset-categories": "tsx scripts/resetAndUpdateCategories.ts",
+    "update-article-categories": "tsx scripts/updateArticleCategories.ts",
+    "sync-rss-sources": "tsx scripts/syncRSSSourcesFromCrawler.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",

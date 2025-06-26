@@ -239,6 +239,11 @@ export class RSSCrawler extends BaseCrawler {
     return results;
   }
 
+  // 获取单个RSS源的数据 - 用于Papers with Code等特定源
+  async fetchSingleRSSFeed(url: string, sourceName?: string): Promise<CrawlerResult<RSSFeed>> {
+    return await this.crawl(url, { sourceName: sourceName || 'RSS Feed' });
+  }
+
   // 生成内容ID
   private generateContentId(url?: string): string {
     if (!url) {
@@ -252,58 +257,22 @@ export class RSSCrawler extends BaseCrawler {
     return crypto.createHash('md5').update(url).digest('hex').substring(0, 8);
   }
 
-  // 获取高质量AI相关的RSS源列表（清理无效源）
+  // 已废弃：RSS源现在完全由数据库 feed_sources 表管理
+  // 使用 scripts/syncRSSSourcesFromCrawler.ts 进行同步
+  /**
+   * @deprecated Use database feed_sources table instead
+   */
   getAIRSSFeeds(): Record<string, string> {
-    return {
-      // 主要AI博客和新闻源 - 已验证可用
-      'OpenAI News': 'https://openai.com/news/rss.xml',
-      'Google AI Blog': 'https://blog.google/technology/ai/rss/',
-      'DeepMind Blog': 'https://deepmind.com/blog/feed/basic',
-      'Hugging Face': 'https://huggingface.co/blog/feed.xml',
-      'TechCrunch': 'https://techcrunch.com/feed/',
-      'The Verge': 'https://www.theverge.com/rss/index.xml',
-      
-      // 技术和教育资源
-      'KDnuggets': 'https://www.kdnuggets.com/feed',
-      'MarkTechPost': 'https://www.marktechpost.com/feed',
-      'The Rundown AI': 'https://rss.beehiiv.com/feeds/2R3C6Bt5wj.xml',
-      
-      // 新闻和媒体
-      'AI News': 'https://artificialintelligence-news.com/feed/',
-      'MIT Technology Review': 'https://www.technologyreview.com/feed/',
-      
-      // 中文技术内容
-      '阮一峰的网络日志': 'https://www.ruanyifeng.com/blog/atom.xml',
-      
-      // arXiv feeds
-      'arXiv ML': 'https://arxiv.org/rss/cs.LG',
-      'arXiv Computer Vision': 'https://arxiv.org/rss/cs.CV',
-      'arXiv NLP': 'https://arxiv.org/rss/cs.CL',
-      
-      // 学术和研究
-      'Berkeley AI Research': 'https://bair.berkeley.edu/blog/feed.xml',
-      
-      // 专业博客和分析
-      'Towards Data Science': 'https://towardsdatascience.com/feed',
-      'Analytics India Magazine': 'https://analyticsindiamag.com/feed/',
-      'DataRobot': 'https://www.datarobot.com/blog/feed/'
-    };
+    console.warn('⚠️ getAIRSSFeeds() 已废弃，请使用数据库 feed_sources 表');
+    return {};
   }
 
-  // 获取顶级RSS源
+  /**
+   * @deprecated Use database feed_sources table instead
+   */
   getTopTierFeeds(): Record<string, string> {
-    return {
-      'OpenAI News': 'https://openai.com/news/rss.xml',
-      'Google AI Blog': 'https://blog.google/technology/ai/rss/',
-      'Hugging Face': 'https://huggingface.co/blog/feed.xml',
-      'arXiv ML': 'https://arxiv.org/rss/cs.LG',
-      'TechCrunch': 'https://techcrunch.com/feed/',
-      'The Verge': 'https://www.theverge.com/rss/index.xml',
-      'MIT Technology Review': 'https://www.technologyreview.com/feed/',
-      'MarkTechPost': 'https://www.marktechpost.com/feed',
-      'KDnuggets': 'https://www.kdnuggets.com/feed',
-      '阮一峰的网络日志': 'https://www.ruanyifeng.com/blog/atom.xml'
-    };
+    console.warn('⚠️ getTopTierFeeds() 已废弃，请使用数据库 feed_sources 表');
+    return {};
   }
 
   // 测试单个RSS源
@@ -330,15 +299,13 @@ export class RSSCrawler extends BaseCrawler {
     return result;
   }
 
-  // 测试所有AI RSS源
+  /**
+   * @deprecated Use database feed_sources table for testing instead
+   */
   async testAllAIRSSFeeds(): Promise<Record<string, CrawlerResult<RSSFeed>>> {
-    console.log('开始测试所有AI相关RSS源...\n');
-    
-    const rssFeeds = this.getAIRSSFeeds();
-    const results = await this.fetchMultipleRSSFeeds(rssFeeds);
-    
-    this.printTestSummary('AI RSS', results);
-    return results;
+    console.warn('⚠️ testAllAIRSSFeeds() 已废弃，请直接从数据库 feed_sources 表获取源进行测试');
+    console.log('建议使用: scripts/collectDataToSupabase.ts --sources=rss 来测试RSS源');
+    return {};
   }
 
   // 打印测试结果摘要

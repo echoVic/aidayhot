@@ -1,12 +1,11 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import {
   ArxivCrawler,
   GitHubCrawler,
-  PapersWithCodeCrawler,
   RSSCrawler,
   StackOverflowCrawler
 } from '../src/crawlers';
+import { supabase } from './supabaseClient';
 
 // 🎯 各数据源的智能配置 - 根据测试结果调整
 interface SourceConfig {
@@ -40,11 +39,11 @@ const SOURCE_CONFIGS: Record<string, SourceConfig> = {
     description: '📰 技术博客 - 丰富的技术观点和趋势 (高权重)'
   },
   'papers-with-code': { 
-    maxResults: 5,         // ❌ API不稳定 - 减少依赖
-    timeout: 8,
-    priority: 'low',
-    status: 'unstable',
-    description: '🔬 ML论文+代码 - 实用研究 (备用)'
+    maxResults: 10,        // ✅ RSS源稳定 - 提升权重
+    timeout: 10,
+    priority: 'medium',
+    status: 'working',
+    description: '🔬 ML论文+代码 - 实用研究 (RSS源)'
   },
   'stackoverflow': { 
     maxResults: 5,         // ❌ API问题 - 减少依赖
@@ -159,25 +158,65 @@ function calculateTimeRange(hoursBack: number): { fromTime: Date; toTime: Date }
   return { fromTime, toTime };
 }
 
+// 分类映射 - 将原始分类映射到标准分类
+const CATEGORY_MAPPING: Record<string, string> = {
+  // ArXiv分类映射
+  'cs.AI': 'AI/机器学习',
+  'cs.CV': 'AI/机器学习',
+  'cs.CL': 'AI/机器学习',
+  'cs.LG': 'AI/机器学习',
+  'cs.NE': 'AI/机器学习',
+  'stat.ML': 'AI/机器学习',
+  '机器学习': 'AI/机器学习',
+  '深度学习': 'AI/机器学习',
+  '自然语言处理': 'AI/机器学习',
+  '计算机视觉': 'AI/机器学习',
+  '大模型': 'AI/机器学习',
+  '人工智能': 'AI/机器学习',
+  'AI绘画': 'AI/机器学习',
+  '神经网络': 'AI/机器学习',
+  
+  // GitHub和技术相关
+  'GitHub项目': '技术/开发',
+  'GitHub仓库': '技术/开发',
+  '开源项目': '技术/开发',
+  '编程': '技术/开发',
+  '开发工具': '技术/开发',
+  '软件开发': '技术/开发',
+  'Stack Overflow': '技术/开发',
+  '技术问答': '技术/开发',
+  
+  // RSS和新闻相关
+  'RSS文章': '新闻/资讯',
+  '技术新闻': '新闻/资讯',
+  '科技资讯': '新闻/资讯',
+  '行业动态': '新闻/资讯',
+  
+  // ML论文相关
+  'ML论文': '学术/研究',
+  '学术论文': '学术/研究',
+  '研究报告': '学术/研究',
+  
+  // 播客相关
+  '播客': '播客',
+  'Podcast': '播客',
+  
+  // 设计相关
+  '设计': '设计/UX',
+  'UX': '设计/UX',
+  'UI': '设计/UX',
+  
+  // 社交媒体
+  '社交': '社交媒体',
+  '社交媒体': '社交媒体'
+};
+
 async function collectData(): Promise<void> {
   const options = parseArgs();
   
   log(`开始 AI 日报数据收集`, 'info');
   log(`配置: ${JSON.stringify(options)}`, 'info');
   
-  // 检查环境变量
-  const requiredEnvs = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
-  for (const env of requiredEnvs) {
-    if (!process.env[env]) {
-      log(`缺少必需的环境变量: ${env}`, 'error');
-      if (!options.continueOnError) {
-        process.exit(1);
-      }
-      log('继续执行但跳过数据保存...', 'info');
-      break;
-    }
-  }
-
   const stats: CollectionStats = {
     total: 0,
     success: 0,
@@ -193,56 +232,23 @@ async function collectData(): Promise<void> {
     
     log(`设置执行超时: ${options.timeout} 秒`, 'info');
 
-    // 初始化 Supabase（使用 try-catch 包装）
-    let supabase: SupabaseClient | null = null;
+    // 使用统一的 supabase 客户端
     let canSaveToDatabase = false;
     
-    try {
-      if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-        
-        log(`Supabase URL: ${supabaseUrl}`, 'info');
-        log(`使用的密钥类型: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' : 'ANON_KEY'}`, 'info');
-        
-        supabase = createClient(supabaseUrl, supabaseKey);
-        
-        // 测试连接
-        try {
-          log('开始测试数据库连接...', 'info');
-          const { data, error } = await supabase.from('articles').select('count').limit(1);
-          if (error) {
-            log(`数据库连接测试失败: ${error.message}`, 'error');
-            log(`连接错误详情: ${JSON.stringify(error)}`, 'error');
-            throw error;
-          }
-          log('数据库连接测试成功', 'success');
-          canSaveToDatabase = true;
-        } catch (connError) {
-          log(`数据库连接失败: ${connError instanceof Error ? connError.message : 'Unknown connection error'}`, 'error');
-          log(`连接错误完整信息: ${JSON.stringify(connError)}`, 'error');
-          if (!options.continueOnError) {
-            throw connError;
-          }
-          log('继续执行爬虫测试（跳过数据保存）...', 'info');
+    if (supabase) {
+      try {
+        log(`Supabase 客户端连接成功`, 'success');
+        canSaveToDatabase = true;
+      } catch (connError) {
+        log(`数据库连接失败: ${connError instanceof Error ? connError.message : 'Unknown connection error'}`, 'error');
+        log(`连接错误完整信息: ${JSON.stringify(connError)}`, 'error');
+        if (!options.continueOnError) {
+          throw connError;
         }
-        
-        log('Supabase 客户端初始化成功', 'success');
-      } else {
-        log('Supabase 环境变量缺失，将只运行爬虫测试', 'info');
-        log(`SUPABASE_URL: ${process.env.SUPABASE_URL ? '已设置' : '未设置'}`, 'info');
-        log(`SUPABASE_ANON_KEY: ${process.env.SUPABASE_ANON_KEY ? '已设置' : '未设置'}`, 'info');
-        log(`SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? '已设置' : '未设置'}`, 'info');
+        log('继续执行爬虫测试（跳过数据保存）...', 'info');
       }
-    } catch (error) {
-      log(`Supabase 初始化失败: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-      if (options.verbose) {
-        log(`初始化错误详情: ${JSON.stringify(error)}`, 'error');
-      }
-      if (!options.continueOnError) {
-        throw error;
-      }
-      log('继续执行爬虫测试...', 'info');
+    } else {
+      log('Supabase 环境变量缺失，将只运行爬虫测试', 'info');
     }
 
     // 确定要爬取的源
@@ -280,7 +286,7 @@ async function collectData(): Promise<void> {
             crawlers[source] = new RSSCrawler();
             break;
           case 'papers-with-code':
-            crawlers[source] = new PapersWithCodeCrawler({ useMockData: true }); // 使用模拟数据
+            crawlers[source] = new RSSCrawler(); // 使用RSS爬虫
             break;
           case 'stackoverflow':
             crawlers[source] = new StackOverflowCrawler();
@@ -473,29 +479,70 @@ async function collectData(): Promise<void> {
           }
 
           case 'papers-with-code': {
-            const papersResult = await crawler.getAIPapers(maxResults);
-            if (papersResult.success && papersResult.papers) {
-              let papers = papersResult.papers;
+            // 使用新的RSS源替代原来的爬虫方式
+            try {
+              log(`${source}: 使用RSS源获取Papers with Code数据`, 'info');
+              const rssUrl = 'https://us-east1-ml-feeds.cloudfunctions.net/pwc/latest';
+              const rssResult = await crawler.fetchSingleRSSFeed(rssUrl);
               
-              // 如果启用了时间过滤，过滤论文
-              if (fromTime) {
-                papers = papers.filter((paper: any) => {
-                  const publishedDate = new Date(paper.publishedAt);
-                  return publishedDate >= fromTime! && publishedDate <= toTime;
-                });
-                log(`${source}: 时间过滤后保留 ${papers.length} 篇论文`, 'info');
+              if (rssResult.success && rssResult.data && rssResult.data.items) {
+                let items = rssResult.data.items.slice(0, maxResults);
+                
+                // 如果启用了时间过滤，过滤RSS条目
+                if (fromTime) {
+                  items = items.filter((item: any) => {
+                    if (!item.pubDate) return false;
+                    const pubDate = new Date(item.pubDate);
+                    return pubDate >= fromTime! && pubDate <= toTime;
+                  });
+                  log(`${source}: 时间过滤后保留 ${items.length} 篇论文`, 'info');
+                }
+                
+                results = items.map((item: any) => ({
+                  title: item.title,
+                  url: item.link,
+                  description: (item.description || item.content || '').substring(0, 500) + (((item.description || item.content || '').length > 500) ? '...' : ''),
+                  author: item.author || 'Papers with Code',
+                  publishedDate: item.pubDate ? item.pubDate.toISOString() : new Date().toISOString(),
+                  category: 'ML论文',
+                  tags: item.categories || [],
+                  source: 'papers-with-code'
+                }));
+                
+                log(`${source}: RSS源成功获取 ${results.length} 篇论文`, 'success');
+              } else {
+                log(`${source}: RSS源获取失败`, 'error');
               }
+            } catch (error) {
+              log(`${source}: RSS源获取出错: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
               
-              results = papers.map((paper: any) => ({
-                title: paper.title,
-                url: paper.url,
-                description: paper.abstract,
-                author: paper.authors.join(', '),
-                publishedDate: paper.publishedAt.toISOString(),
-                category: 'ML论文',
-                tags: paper.tasks || [],
-                source: 'papers-with-code'
-              }));
+              // 如果RSS失败，回退到原来的爬虫方式（注释掉的代码）
+              /*
+              const papersResult = await crawler.getAIPapers(maxResults);
+              if (papersResult.success && papersResult.papers) {
+                let papers = papersResult.papers;
+                
+                // 如果启用了时间过滤，过滤论文
+                if (fromTime) {
+                  papers = papers.filter((paper: any) => {
+                    const publishedDate = new Date(paper.publishedAt);
+                    return publishedDate >= fromTime! && publishedDate <= toTime;
+                  });
+                  log(`${source}: 时间过滤后保留 ${papers.length} 篇论文`, 'info');
+                }
+                
+                results = papers.map((paper: any) => ({
+                  title: paper.title,
+                  url: paper.url,
+                  description: paper.abstract,
+                  author: paper.authors.join(', '),
+                  publishedDate: paper.publishedAt.toISOString(),
+                  category: 'ML论文',
+                  tags: paper.tasks || [],
+                  source: 'papers-with-code'
+                }));
+              }
+              */
             }
             break;
           }
@@ -558,11 +605,14 @@ async function collectData(): Promise<void> {
               const articleId = `${item.source}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
               // 准备基础数据
+              // 使用分类映射将原始分类转换为标准分类
+              const mappedCategory = CATEGORY_MAPPING[item.category] || '其他';
+              
               const articleData: any = {
                 id: articleId,
                 title: item.title,
                 summary: item.description || '',
-                category: item.category || 'general',
+                category: mappedCategory,
                 author: item.author || '',
                 publish_time: item.publishedDate ? new Date(item.publishedDate).toISOString() : new Date().toISOString(),
                 source_url: item.url,
@@ -793,9 +843,9 @@ async function collectData(): Promise<void> {
     // 更新分类统计
     if (canSaveToDatabase && supabase && stats.success > 0) {
       try {
-        log('开始更新分类统计...', 'info');
+                  log('开始更新分类统计...', 'info');
         
-        // 获取所有分类的文章统计
+        // 获取所有文章的分类信息
         const { data: categoryStats, error: statsError } = await supabase
           .from('articles')
           .select('category')
@@ -804,15 +854,26 @@ async function collectData(): Promise<void> {
         if (statsError) {
           log(`获取分类统计失败: ${statsError.message}`, 'error');
         } else {
-          // 统计每个分类的文章数量
-          const categoryCounts: Record<string, number> = {};
+          // 统计映射后的分类数量
+          const mappedCategoryCounts: Record<string, number> = {};
+          let totalArticles = 0;
+          
           categoryStats?.forEach(article => {
-            const category = article.category || 'general';
-            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+            const originalCategory = article.category || 'general';
+            // 使用映射将原始分类转换为数据库分类
+            const mappedCategory = CATEGORY_MAPPING[originalCategory] || '其他';
+            mappedCategoryCounts[mappedCategory] = (mappedCategoryCounts[mappedCategory] || 0) + 1;
+            totalArticles++;
           });
           
+          // 计算"全部"分类的总数
+          mappedCategoryCounts['全部'] = totalArticles;
+          
+          log(`文章分类映射统计完成，总计 ${totalArticles} 篇文章`, 'info');
+          log(`映射后的分类分布: ${JSON.stringify(mappedCategoryCounts, null, 2)}`, 'info');
+          
           // 更新每个分类的count字段
-          for (const [categoryName, count] of Object.entries(categoryCounts)) {
+          for (const [categoryName, count] of Object.entries(mappedCategoryCounts)) {
             try {
               const { error: updateError } = await supabase
                 .from('categories')
@@ -822,14 +883,14 @@ async function collectData(): Promise<void> {
               if (updateError) {
                 log(`更新分类 "${categoryName}" 统计失败: ${updateError.message}`, 'error');
               } else {
-                log(`更新分类 "${categoryName}": ${count} 篇文章`, 'info');
+                log(`更新分类 "${categoryName}": ${count} 篇文章`, 'success');
               }
             } catch (error) {
               log(`更新分类 "${categoryName}" 时发生错误: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
             }
           }
           
-          log(`分类统计更新完成，共处理 ${Object.keys(categoryCounts).length} 个分类`, 'success');
+          log(`分类统计更新完成，共处理 ${Object.keys(mappedCategoryCounts).length} 个分类`, 'success');
         }
       } catch (error) {
         log(`分类统计更新过程中发生错误: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');

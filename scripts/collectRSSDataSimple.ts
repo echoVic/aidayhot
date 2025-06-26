@@ -1,24 +1,10 @@
 #!/usr/bin/env node
 
-import { createClient } from '@supabase/supabase-js';
-import { config } from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { RSSCrawler } from '../src/crawlers/RSSCrawler';
 import type { RSSItem } from '../src/crawlers/types';
-
-// 加载环境变量
-config({ path: path.join(process.cwd(), '.env.local') });
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ 请设置环境变量 NEXT_PUBLIC_SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from './supabaseClient';
 
 interface FeedSource {
   id: number;
