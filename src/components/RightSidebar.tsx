@@ -256,29 +256,6 @@ export default function RightSidebar() {
             立即学习 →
           </button>
         </div>
-
-        {/* 统计图表区域 */}
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="font-semibold text-gray-900 mb-3">📊 网站统计</h4>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">今日访问</span>
-              <span className="font-medium text-blue-600">{stats.todayVisits.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">文章总数</span>
-              <span className="font-medium text-green-600">{stats.totalArticles.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">用户数量</span>
-              <span className="font-medium text-purple-600">{stats.totalUsers.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">评论数量</span>
-              <span className="font-medium text-orange-600">{stats.totalComments.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
       </div>
     </aside>
   );

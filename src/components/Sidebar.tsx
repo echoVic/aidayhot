@@ -169,11 +169,11 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
           </div>
         </div>
 
-        {/* 实时统计信息 */}
+        {/* 网站统计 */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
           <h4 className="font-semibold mb-2 flex items-center">
             <span className="mr-2">📊</span>
-            今日数据
+            网站统计
           </h4>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between items-center">
@@ -189,13 +189,13 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span>用户访问</span>
+              <span>文章总数</span>
               <span className="font-medium bg-white/20 px-2 py-1 rounded">
-                {stats.totalUsers.toLocaleString()}
+                {/* 文章总数直接用分类总和 */}
+                {categories.reduce((sum, cat) => sum + cat.count, 0)}
               </span>
             </div>
           </div>
-          
           {/* 实时指示器 */}
           <div className="mt-3 flex items-center text-xs text-blue-100">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
@@ -204,16 +204,7 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
         </div>
 
         {/* 快捷操作 */}
-        <div className="mt-6 space-y-2">
-          <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-2">
-            <span>🔍</span>
-            <span>高级搜索</span>
-          </button>
-          <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-2">
-            <span>⭐</span>
-            <span>我的收藏</span>
-          </button>
-        </div>
+        {/* ... 此处原有按钮已全部移除，如无内容则整个div一并删除 ... */}
       </div>
     </aside>
   );
