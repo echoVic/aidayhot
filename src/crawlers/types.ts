@@ -70,6 +70,7 @@ export interface ArxivPaper {
   comments?: string;
   tags: string[];
   checksum: string;
+  source_type?: string;
 }
 
 export interface ArxivCrawlerResult extends CrawlerResult<ArxivPaper[]> {
@@ -112,6 +113,7 @@ export interface GitHubRepository {
   };
   checksum: string;
   metadata?: Record<string, any>;
+  source_type?: string;
 }
 
 export interface GitHubCrawlerResult extends CrawlerResult<GitHubRepository[]> {
@@ -140,6 +142,7 @@ export interface RSSItem {
   checksum: string;
   sourceName?: string;
   sourceCategory?: string;
+  source_type?: string;
 }
 
 export interface RSSFeed {

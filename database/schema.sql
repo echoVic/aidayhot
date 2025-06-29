@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS public.articles (
   title TEXT NOT NULL,
   summary TEXT,
   category VARCHAR(50) NOT NULL,
+  source_type VARCHAR(50),
   author VARCHAR(100),
   publish_time VARCHAR(20),
   read_time VARCHAR(20),
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS public.articles (
 
 -- 创建索引以提高查询性能
 CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
+CREATE INDEX IF NOT EXISTS idx_articles_source_type ON articles(source_type);
 CREATE INDEX IF NOT EXISTS idx_articles_is_hot ON articles(is_hot);
 CREATE INDEX IF NOT EXISTS idx_articles_is_new ON articles(is_new);
 CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at);

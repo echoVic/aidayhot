@@ -363,6 +363,7 @@ export class GitHubCrawler extends BaseCrawler {
         networkCount: repo.network_count,
         subscribersCount: repo.subscribers_count,
       },
+      source_type: 'github'
     };
   }
 

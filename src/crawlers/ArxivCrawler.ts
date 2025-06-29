@@ -261,6 +261,7 @@ export class ArxivCrawler extends BaseCrawler {
       comments: entry.comment || undefined,
       tags: categories,
       checksum: this.calculateChecksum(title + summary),
+      source_type: 'paper'
     };
   }
 

@@ -71,9 +71,42 @@ export class ArticleService {
     };
   }
 
-  // 获取热门文章
-  static async getHot(limit = 10): Promise<Article[]> {
-    const { data, error } = await supabase
+  // 根据来源类型获取文章（带分页）
+  static async getBySourceType(sourceType: string, page = 1, pageSize = 20): Promise<PaginatedResult<Article>> {
+    const offset = (page - 1) * pageSize;
+
+    const [countResult, dataResult] = await Promise.all([
+      supabase.from('articles')
+        .select('*', { count: 'exact', head: true })
+        .eq('source_type', sourceType),
+      supabase.from('articles')
+        .select('*')
+        .eq('source_type', sourceType)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1)
+    ]);
+
+    if (countResult.error) throw countResult.error;
+    if (dataResult.error) throw dataResult.error;
+
+    const total = countResult.count || 0;
+    return {
+      data: dataResult.data || [],
+      total,
+      hasMore: offset + pageSize < total,
+      page,
+      pageSize
+    };
+  }
+
+  // 获取RSS文章（带分页） - 专门用于首页
+  static async getRSSArticles(page = 1, pageSize = 20): Promise<PaginatedResult<Article>> {
+    return this.getBySourceType('rss', page, pageSize);
+  }
+
+   // 获取热门文章
+   static async getHot(limit = 10): Promise<Article[]> {
+     const { data, error } = await supabase
       .from('articles')
       .select('*')
       .eq('is_hot', true)

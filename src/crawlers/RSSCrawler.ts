@@ -146,7 +146,8 @@ export class RSSCrawler extends BaseCrawler {
           contentSnippet: this.stripHtml(content),
           checksum: this.calculateChecksum(content),
           sourceName: sourceInfo?.sourceName,
-          sourceCategory: sourceInfo?.sourceCategory
+          sourceCategory: sourceInfo?.sourceCategory,
+          source_type: 'rss'
         });
       } else {
         // RSS格式解析
@@ -166,7 +167,8 @@ export class RSSCrawler extends BaseCrawler {
           contentSnippet: this.stripHtml(content),
           checksum: this.calculateChecksum(content),
           sourceName: sourceInfo?.sourceName,
-          sourceCategory: sourceInfo?.sourceCategory
+          sourceCategory: sourceInfo?.sourceCategory,
+          source_type: 'rss'
         });
       }
     }
