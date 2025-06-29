@@ -14,7 +14,7 @@
     "collect-data": "tsx scripts/collectDataToSupabase.ts",
     "update-category-stats": "tsx scripts/updateCategoryStats.ts",
     "reset-categories": "tsx scripts/resetAndUpdateCategories.ts",
-    "update-article-categories": "tsx scripts/updateArticleCategories.ts",
+    "update-article-categories": "tsx scripts/newUpdateArticleCategories.ts",
     "sync-rss-sources": "tsx scripts/syncRSSSourcesFromCrawler.ts"
   },
   "dependencies": {

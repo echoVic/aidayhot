@@ -3,10 +3,10 @@ import { XMLParser } from 'fast-xml-parser';
 import got from 'got';
 import { BaseCrawler } from './BaseCrawler';
 import type {
-  CrawlerOptions,
-  CrawlerResult,
-  RSSFeed,
-  RSSItem
+    CrawlerOptions,
+    CrawlerResult,
+    RSSFeed,
+    RSSItem
 } from './types';
 
 interface ParsedRSSFeed {
@@ -119,6 +119,16 @@ export class RSSCrawler extends BaseCrawler {
     }
   }
 
+  private safeParseDate(dateStr: string | undefined): Date | null {
+    if (!dateStr) return new Date();
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) {
+      console.warn('无效时间格式，已跳过:', dateStr);
+      return null;
+    }
+    return d;
+  }
+
   private parseItems(feedData: any, isAtom: boolean, sourceInfo?: { sourceName?: string; sourceCategory?: string }): RSSItem[] {
     const items: RSSItem[] = [];
     const itemArray = isAtom ? feedData.entry : feedData.item;
@@ -132,13 +142,14 @@ export class RSSCrawler extends BaseCrawler {
         // Atom格式解析
         const id = this.generateContentId(item.link?.['@_href'] || item.id);
         const content = item.content?.['#text'] || item.content || item.summary?.['#text'] || item.summary || '';
-        
+        const pubDate = this.safeParseDate(item.updated);
+        if (!pubDate) continue;
         items.push({
           id,
           title: item.title?.['#text'] || item.title || '',
           description: content,
           link: item.link?.['@_href'] || item.link || '',
-          pubDate: item.updated ? new Date(item.updated) : new Date(),
+          pubDate,
           author: item.author?.name || item.author || '',
           categories: this.extractCategories(item.category),
           guid: item.id || '',
@@ -153,13 +164,14 @@ export class RSSCrawler extends BaseCrawler {
         // RSS格式解析
         const id = this.generateContentId(item.link || item.guid);
         const content = item.description || item['content:encoded'] || item.content || '';
-        
+        const pubDate = this.safeParseDate(item.pubDate);
+        if (!pubDate) continue;
         items.push({
           id,
           title: item.title || '',
           description: content,
           link: item.link || '',
-          pubDate: item.pubDate ? new Date(item.pubDate) : new Date(),
+          pubDate,
           author: item.author || item['dc:creator'] || '',
           categories: this.extractCategories(item.category),
           guid: item.guid || '',
