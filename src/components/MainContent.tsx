@@ -53,7 +53,11 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
       }
 
       if (append && page > 1) {
-        setArticles(prev => [...prev, ...result.data]);
+        setArticles(prev => {
+          const merged = [...prev, ...result.data];
+          // 全局按 publish_time 降序排序
+          return merged.sort((a, b) => new Date(b.publish_time).getTime() - new Date(a.publish_time).getTime());
+        });
       } else {
         setArticles(result.data);
       }
@@ -113,19 +117,10 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
     };
   }, [loadArticles]);
 
-  // 排序文章
-  const sortedArticles = [...articles].sort((a, b) => {
-    switch (sortBy) {
-      case 'popular':
-        return b.views - a.views;
-      case 'trending':
-        return b.likes - a.likes;
-      case 'latest':
-      default:
-        return new Date(b.created_at || b.publish_time).getTime() - 
-               new Date(a.created_at || a.publish_time).getTime();
-    }
-  });
+  // 只执行最新排序，其他选项暂不处理
+  const sortedArticles = [...articles].sort((a, b) =>
+    new Date(b.publish_time).getTime() - new Date(a.publish_time).getTime()
+  );
 
   // 处理文章点击（增加浏览量）
   const handleArticleClick = useCallback(async (articleId: string) => {
@@ -182,20 +177,6 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* 排序选择 */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">排序:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular' | 'trending')}
-                className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="latest">最新发布</option>
-                <option value="popular">热门文章</option>
-                <option value="trending">趋势热点</option>
-              </select>
-            </div>
-
             {/* 视图模式切换 */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
@@ -222,6 +203,20 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                 </svg>
               </button>
+            </div>
+
+            {/* 排序选择 */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">排序:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular' | 'trending')}
+                className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="latest">最新发布</option>
+                <option value="popular">热门文章</option>
+                <option value="trending">趋势热点</option>
+              </select>
             </div>
           </div>
         </div>

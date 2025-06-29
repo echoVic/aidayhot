@@ -16,32 +16,34 @@ ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 CREATE TABLE IF NOT EXISTS public.categories (
   id BIGSERIAL PRIMARY KEY,
   name VARCHAR(50) NOT NULL UNIQUE,
-  href VARCHAR(100) NOT NULL UNIQUE,
+  href VARCHAR(100) NOT NULL,
   count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 创建文章表
 CREATE TABLE IF NOT EXISTS public.articles (
-  id VARCHAR(50) PRIMARY KEY,
+  id VARCHAR(100) PRIMARY KEY,
   title TEXT NOT NULL,
   summary TEXT,
-  category VARCHAR(50) NOT NULL,
-  source_type VARCHAR(50),
-  author VARCHAR(100),
-  publish_time VARCHAR(20),
-  read_time VARCHAR(20),
-  views INTEGER DEFAULT 0,
-  likes INTEGER DEFAULT 0,
-  tags TEXT[] DEFAULT '{}',
-  image_url TEXT,
-  is_hot BOOLEAN DEFAULT FALSE,
-  is_new BOOLEAN DEFAULT TRUE,
+  category VARCHAR(100) DEFAULT 'general',
+  author TEXT,
+  publish_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  
-  -- 外键约束
-  CONSTRAINT fk_category FOREIGN KEY (category) REFERENCES categories(name) ON UPDATE CASCADE
+  source_url TEXT NOT NULL,
+  source_type VARCHAR(50) NOT NULL,
+  content_id VARCHAR(100) NOT NULL UNIQUE,
+  tags JSONB DEFAULT '[]',
+  is_new BOOLEAN DEFAULT true,
+  is_hot BOOLEAN DEFAULT false,
+  views INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
+  arxiv_id VARCHAR(100),
+  repo_id BIGINT,
+  paper_id VARCHAR(100),
+  question_id BIGINT,
+  metadata JSONB DEFAULT '{}'
 );
 
 -- 创建索引以提高查询性能

@@ -6,7 +6,6 @@ interface CategoryData {
 }
 
 const newCategories: CategoryData[] = [
-  { name: '全部', href: '/' },
   { name: 'AI/机器学习', href: '/category/ai-ml' },
   { name: '社交媒体', href: '/category/social' },
   { name: '技术/开发', href: '/category/tech' },
@@ -118,18 +117,6 @@ async function updateCategoryCountsFromArticles() {
       if (updateError) {
         console.error(`更新分类 ${categoryName} 失败:`, updateError);
       }
-    }
-
-    // 更新"全部"分类的数量
-    const { error: updateAllError } = await supabase
-      .from('categories')
-      .update({ count: totalArticles })
-      .eq('name', '全部');
-
-    if (updateAllError) {
-      console.error('更新"全部"分类失败:', updateAllError);
-    } else {
-      console.log(`✅ 成功更新所有分类统计，总文章数: ${totalArticles}`);
     }
 
   } catch (error) {

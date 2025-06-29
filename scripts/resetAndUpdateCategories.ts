@@ -129,8 +129,8 @@ async function resetAndUpdateCategories(): Promise<void> {
       totalArticles++;
     });
     
-    // 计算"全部"分类的总数
-    mappedCategoryCounts['全部'] = totalArticles;
+    // 不再写入"全部"分类的总数
+    // mappedCategoryCounts['全部'] = totalArticles;
     
     // 显示统计结果
     log(`📊 分类统计完成，总计 ${totalArticles} 篇文章`, 'success');
