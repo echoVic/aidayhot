@@ -104,6 +104,40 @@ export class ArticleService {
     return this.getBySourceType('rss', page, pageSize);
   }
 
+  // 获取RSS文章的指定分类（带分页）
+  static async getRSSArticlesByCategory(category: string, page = 1, pageSize = 20): Promise<PaginatedResult<Article>> {
+    if (category === '全部') {
+      return this.getRSSArticles(page, pageSize);
+    }
+
+    const offset = (page - 1) * pageSize;
+
+    const [countResult, dataResult] = await Promise.all([
+      supabase.from('articles')
+        .select('*', { count: 'exact', head: true })
+        .eq('category', category)
+        .eq('source_type', 'rss'),
+      supabase.from('articles')
+        .select('*')
+        .eq('category', category)
+        .eq('source_type', 'rss')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1)
+    ]);
+
+    if (countResult.error) throw countResult.error;
+    if (dataResult.error) throw dataResult.error;
+
+    const total = countResult.count || 0;
+    return {
+      data: dataResult.data || [],
+      total,
+      hasMore: offset + pageSize < total,
+      page,
+      pageSize
+    };
+  }
+
    // 获取热门文章
    static async getHot(limit = 10): Promise<Article[]> {
      const { data, error } = await supabase

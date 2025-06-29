@@ -45,8 +45,8 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
         // 搜索文章
         result = await ArticleService.search(searchQuery, page, PAGE_SIZE);
       } else if (category && category !== '全部') {
-        // 按分类获取文章
-        result = await ArticleService.getByCategory(category, page, PAGE_SIZE);
+        // 按分类获取RSS类型文章
+        result = await ArticleService.getRSSArticlesByCategory(category, page, PAGE_SIZE);
       } else {
         // 首页默认只显示RSS文章
         result = await ArticleService.getRSSArticles(page, PAGE_SIZE);

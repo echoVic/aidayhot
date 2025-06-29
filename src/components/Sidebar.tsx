@@ -62,15 +62,14 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
     try {
       setLoading(true);
       const data = await CategoryService.getRSSCategories();
-      // 计算总数
-      const totalCount = data.reduce((sum, cat) => sum + cat.count, 0);
-      // 前端插入"全部"分类
+      // 过滤掉原始"全部"分类
+      const filtered = data.filter(cat => cat.name !== '全部');
+      const totalCount = filtered.reduce((sum, cat) => sum + cat.count, 0);
       const categoriesWithAll = [
         { id: 0, name: '全部', count: totalCount, href: '/', created_at: '' },
-        ...data
+        ...filtered
       ];
       setCategories(categoriesWithAll);
-      // 统计数据也用总数
       setStats({
         newArticles: Math.floor(totalCount * 0.1),
         totalViews: Math.floor(totalCount * 15),
