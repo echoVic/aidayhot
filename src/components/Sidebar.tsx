@@ -5,14 +5,14 @@ import { CategoryService, RealtimeService } from '../lib/database';
 import type { Category } from '../lib/supabase';
 
 const categoryIcons: Record<string, string> = {
-  // '全部': '🏠', // 移除全部
+  '全部': '🏠',
   'AI/机器学习': '🤖',
   '社交媒体': '💬',
   '技术/开发': '💻',
   '新闻/资讯': '📰',
   '播客': '🎙️',
   '设计/UX': '🎨',
-  '学术/研究': '��',
+  '学术/研究': '🔬',
   '其他': '📁'
 };
 
@@ -62,16 +62,19 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
     try {
       setLoading(true);
       const data = await CategoryService.getRSSCategories();
-      // 只保留真实分类，不显示"全部"
-      const filteredCategories = (data || []).filter(cat => cat.name !== '全部');
-      setCategories(filteredCategories);
-      
-      // 计算统计数据
-      const totalArticles = filteredCategories.reduce((sum, cat) => sum + cat.count, 0) || 0;
+      // 计算总数
+      const totalCount = data.reduce((sum, cat) => sum + cat.count, 0);
+      // 前端插入"全部"分类
+      const categoriesWithAll = [
+        { id: 0, name: '全部', count: totalCount, href: '/', created_at: '' },
+        ...data
+      ];
+      setCategories(categoriesWithAll);
+      // 统计数据也用总数
       setStats({
-        newArticles: Math.floor(totalArticles * 0.1), // 假设10%是今日新增
-        totalViews: Math.floor(totalArticles * 15), // 假设每篇文章平均15次阅读
-        totalUsers: Math.floor(totalArticles * 3) // 假设每篇文章平均3个用户访问
+        newArticles: Math.floor(totalCount * 0.1),
+        totalViews: Math.floor(totalCount * 15),
+        totalUsers: Math.floor(totalCount * 3)
       });
     } catch (err) {
       console.error('加载分类失败:', err);
