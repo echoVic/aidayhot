@@ -21,6 +21,7 @@ export class ArticleService {
       supabase.from('articles').select('*', { count: 'exact', head: true }),
       supabase.from('articles')
         .select('*')
+        .order('publish_time', { ascending: false })
         .order('created_at', { ascending: false })
         .range(offset, offset + pageSize - 1)
     ]);
@@ -54,6 +55,7 @@ export class ArticleService {
       supabase.from('articles')
         .select('*')
         .eq('category', category)
+        .order('publish_time', { ascending: false })
         .order('created_at', { ascending: false })
         .range(offset, offset + pageSize - 1)
     ]);
@@ -82,6 +84,7 @@ export class ArticleService {
       supabase.from('articles')
         .select('*')
         .eq('source_type', sourceType)
+        .order('publish_time', { ascending: false })
         .order('created_at', { ascending: false })
         .range(offset, offset + pageSize - 1)
     ]);
@@ -121,6 +124,7 @@ export class ArticleService {
         .select('*')
         .eq('category', category)
         .eq('source_type', 'rss')
+        .order('publish_time', { ascending: false })
         .order('created_at', { ascending: false })
         .range(offset, offset + pageSize - 1)
     ]);
@@ -144,7 +148,8 @@ export class ArticleService {
       .from('articles')
       .select('*')
       .eq('is_hot', true)
-      .order('views', { ascending: false })
+      .order('publish_time', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(limit);
     
     if (error) throw error;
@@ -157,6 +162,7 @@ export class ArticleService {
       .from('articles')
       .select('*')
       .eq('is_new', true)
+      .order('publish_time', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
     
@@ -202,6 +208,7 @@ export class ArticleService {
         supabase.from('articles')
           .select('*')
           .or(`title.ilike.${searchPattern},summary.ilike.${searchPattern},content.ilike.${searchPattern}`)
+          .order('publish_time', { ascending: false })
           .order('created_at', { ascending: false })
           .range(offset, offset + pageSize - 1)
       ]);
