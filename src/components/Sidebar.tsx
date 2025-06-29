@@ -5,14 +5,14 @@ import { CategoryService, RealtimeService } from '../lib/database';
 import type { Category } from '../lib/supabase';
 
 const categoryIcons: Record<string, string> = {
-  '全部': '🏠',
+  // '全部': '🏠', // 移除全部
   'AI/机器学习': '🤖',
   '社交媒体': '💬',
   '技术/开发': '💻',
   '新闻/资讯': '📰',
   '播客': '🎙️',
   '设计/UX': '🎨',
-  '学术/研究': '🔬',
+  '学术/研究': '��',
   '其他': '📁'
 };
 
@@ -62,18 +62,12 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
     try {
       setLoading(true);
       const data = await CategoryService.getRSSCategories();
-      
-      // 排序分类，确保"全部"在第一位，其他按名称排序
-      const sortedCategories = (data || []).sort((a, b) => {
-        if (a.name === '全部') return -1;
-        if (b.name === '全部') return 1;
-        return a.name.localeCompare(b.name, 'zh-CN');
-      });
-      
-      setCategories(sortedCategories);
+      // 只保留真实分类，不显示"全部"
+      const filteredCategories = (data || []).filter(cat => cat.name !== '全部');
+      setCategories(filteredCategories);
       
       // 计算统计数据
-      const totalArticles = data?.reduce((sum, cat) => sum + cat.count, 0) || 0;
+      const totalArticles = filteredCategories.reduce((sum, cat) => sum + cat.count, 0) || 0;
       setStats({
         newArticles: Math.floor(totalArticles * 0.1), // 假设10%是今日新增
         totalViews: Math.floor(totalArticles * 15), // 假设每篇文章平均15次阅读
