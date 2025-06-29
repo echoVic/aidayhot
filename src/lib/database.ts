@@ -259,6 +259,53 @@ export class CategoryService {
     return data || [];
   }
 
+  // 获取RSS文章的分类统计
+  static async getRSSCategories(): Promise<Category[]> {
+    // 动态计算RSS类型文章的分类统计
+    const { data: rssStats, error } = await supabase
+      .from('articles')
+      .select('category')
+      .eq('source_type', 'rss');
+    
+    if (error) throw error;
+    
+    // 统计每个分类的文章数量
+    const categoryCount: Record<string, number> = {};
+    let totalCount = 0;
+    
+    (rssStats || []).forEach(article => {
+      const category = article.category || '其他';
+      categoryCount[category] = (categoryCount[category] || 0) + 1;
+      totalCount++;
+    });
+    
+    // 构建分类数组，包含"全部"分类
+    const categories: Category[] = [
+      {
+        id: 0,
+        name: '全部',
+        href: '/',
+        count: totalCount,
+        created_at: new Date().toISOString()
+      }
+    ];
+    
+    // 添加其他分类
+    Object.entries(categoryCount)
+      .sort(([a], [b]) => a.localeCompare(b, 'zh-CN'))
+      .forEach(([name, count], index) => {
+        categories.push({
+          id: index + 1,
+          name,
+          href: `/${name}`,
+          count,
+          created_at: new Date().toISOString()
+        });
+      });
+    
+    return categories;
+  }
+
   // 更新分类文章数量
   static async updateCount(categoryName: string, count: number): Promise<void> {
     const { error } = await supabase

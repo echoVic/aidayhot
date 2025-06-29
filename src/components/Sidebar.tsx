@@ -61,7 +61,7 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const data = await CategoryService.getAll();
+      const data = await CategoryService.getRSSCategories();
       
       // 排序分类，确保"全部"在第一位，其他按名称排序
       const sortedCategories = (data || []).sort((a, b) => {
