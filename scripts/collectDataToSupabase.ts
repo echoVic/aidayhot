@@ -158,58 +158,8 @@ function calculateTimeRange(hoursBack: number): { fromTime: Date; toTime: Date }
   return { fromTime, toTime };
 }
 
-// 分类映射 - 将原始分类映射到标准分类
-const CATEGORY_MAPPING: Record<string, string> = {
-  // ArXiv分类映射
-  'cs.AI': 'AI/机器学习',
-  'cs.CV': 'AI/机器学习',
-  'cs.CL': 'AI/机器学习',
-  'cs.LG': 'AI/机器学习',
-  'cs.NE': 'AI/机器学习',
-  'stat.ML': 'AI/机器学习',
-  '机器学习': 'AI/机器学习',
-  '深度学习': 'AI/机器学习',
-  '自然语言处理': 'AI/机器学习',
-  '计算机视觉': 'AI/机器学习',
-  '大模型': 'AI/机器学习',
-  '人工智能': 'AI/机器学习',
-  'AI绘画': 'AI/机器学习',
-  '神经网络': 'AI/机器学习',
-  
-  // GitHub和技术相关
-  'GitHub项目': '技术/开发',
-  'GitHub仓库': '技术/开发',
-  '开源项目': '技术/开发',
-  '编程': '技术/开发',
-  '开发工具': '技术/开发',
-  '软件开发': '技术/开发',
-  'Stack Overflow': '技术/开发',
-  '技术问答': '技术/开发',
-  
-  // RSS和新闻相关
-  'RSS文章': '新闻/资讯',
-  '技术新闻': '新闻/资讯',
-  '科技资讯': '新闻/资讯',
-  '行业动态': '新闻/资讯',
-  
-  // ML论文相关
-  'ML论文': '学术/研究',
-  '学术论文': '学术/研究',
-  '研究报告': '学术/研究',
-  
-  // 播客相关
-  '播客': '播客',
-  'Podcast': '播客',
-  
-  // 设计相关
-  '设计': '设计/UX',
-  'UX': '设计/UX',
-  'UI': '设计/UX',
-  
-  // 社交媒体
-  '社交': '社交媒体',
-  '社交媒体': '社交媒体'
-};
+// 分类映射 - 已废弃，迁移到页面映射架构后不再使用
+// const CATEGORY_MAPPING: Record<string, string> = { ... };
 
 async function collectData(): Promise<void> {
   const options = parseArgs();
@@ -604,15 +554,12 @@ async function collectData(): Promise<void> {
               const contentId = `${item.source}_${urlHash}`;  // 使用hash缩短长度
               const articleId = `${item.source}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-              // 准备基础数据
-              // 使用分类映射将原始分类转换为标准分类
-              const mappedCategory = CATEGORY_MAPPING[item.category] || '其他';
-              
+              // 直接保存原始分类
               const articleData: any = {
                 id: articleId,
                 title: item.title,
                 summary: item.description || '',
-                category: mappedCategory,
+                category: item.category || '其他', // 不再做映射
                 author: item.author || '',
                 publish_time: item.publishedDate ? new Date(item.publishedDate).toISOString() : new Date().toISOString(),
                 source_url: item.url,
@@ -840,62 +787,8 @@ async function collectData(): Promise<void> {
 
     await Promise.allSettled(crawlerPromises);
 
-    // 更新分类统计
-    if (canSaveToDatabase && supabase && stats.success > 0) {
-      try {
-                  log('开始更新分类统计...', 'info');
-        
-        // 获取所有文章的分类信息
-        const { data: categoryStats, error: statsError } = await supabase
-          .from('articles')
-          .select('category')
-          .not('category', 'is', null);
-        
-        if (statsError) {
-          log(`获取分类统计失败: ${statsError.message}`, 'error');
-        } else {
-          // 统计映射后的分类数量
-          const mappedCategoryCounts: Record<string, number> = {};
-          let totalArticles = 0;
-          
-          categoryStats?.forEach(article => {
-            const originalCategory = article.category || 'general';
-            // 使用映射将原始分类转换为数据库分类
-            const mappedCategory = CATEGORY_MAPPING[originalCategory] || '其他';
-            mappedCategoryCounts[mappedCategory] = (mappedCategoryCounts[mappedCategory] || 0) + 1;
-            totalArticles++;
-          });
-          
-          // 计算"全部"分类的总数
-          mappedCategoryCounts['全部'] = totalArticles;
-          
-          log(`文章分类映射统计完成，总计 ${totalArticles} 篇文章`, 'info');
-          log(`映射后的分类分布: ${JSON.stringify(mappedCategoryCounts, null, 2)}`, 'info');
-          
-          // 更新每个分类的count字段
-          for (const [categoryName, count] of Object.entries(mappedCategoryCounts)) {
-            try {
-              const { error: updateError } = await supabase
-                .from('categories')
-                .update({ count })
-                .eq('name', categoryName);
-              
-              if (updateError) {
-                log(`更新分类 "${categoryName}" 统计失败: ${updateError.message}`, 'error');
-              } else {
-                log(`更新分类 "${categoryName}": ${count} 篇文章`, 'success');
-              }
-            } catch (error) {
-              log(`更新分类 "${categoryName}" 时发生错误: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-            }
-          }
-          
-          log(`分类统计更新完成，共处理 ${Object.keys(mappedCategoryCounts).length} 个分类`, 'success');
-        }
-      } catch (error) {
-        log(`分类统计更新过程中发生错误: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-      }
-    }
+    // === 移除分类统计和categories表相关逻辑 ===
+    // 不再更新categories表，不再统计标准分类
 
     // 输出最终统计
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);

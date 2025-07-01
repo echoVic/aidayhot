@@ -1,105 +1,76 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { CategoryService, RealtimeService } from '../lib/database';
-import type { Category } from '../lib/supabase';
-
-const categoryIcons: Record<string, string> = {
-  '全部': '🏠',
-  'AI/机器学习': '🤖',
-  '社交媒体': '💬',
-  '技术/开发': '💻',
-  '新闻/资讯': '📰',
-  '播客': '🎙️',
-  '设计/UX': '🎨',
-  '学术/研究': '🔬',
-  '其他': '📁'
-};
-
-const hotTopics = [
-  { name: 'ChatGPT', count: 145 },
-  { name: 'Stable Diffusion', count: 98 },
-  { name: 'GPT-4', count: 87 },
-  { name: 'AI绘画', count: 76 },
-  { name: '智能客服', count: 65 },
-  { name: 'AI写作', count: 54 },
-  { name: '语音识别', count: 43 },
-  { name: '图像识别', count: 32 },
-];
+import { PageContentService } from '../lib/database';
 
 interface SidebarProps {
-  currentCategory?: string;
+  selectedCategory: string;
   onCategoryChange: (category: string) => void;
 }
 
-export default function Sidebar({ currentCategory = '全部', onCategoryChange }: SidebarProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    newArticles: 0,
-    totalViews: 0,
-    totalUsers: 0
-  });
+export default function Sidebar({ selectedCategory, onCategoryChange }: SidebarProps) {
+  const pathname = usePathname();
+  const [pageNavigation, setPageNavigation] = useState<Array<{
+    id: string;
+    name: string; 
+    href: string;
+    count: number;
+    icon?: string;
+  }>>([]);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 加载分类数据
   useEffect(() => {
-    loadCategories();
+    loadPageNavigation();
   }, []);
 
-  // 实时订阅分类变化
-  useEffect(() => {
-    const subscription = RealtimeService.subscribeToCategories((payload) => {
-      console.log('分类数据变化:', payload);
-      loadCategories();
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const loadCategories = async () => {
+  const loadPageNavigation = async () => {
     try {
-      setLoading(true);
-      const data = await CategoryService.getRSSCategories();
-      // 过滤掉原始"全部"分类
-      const filtered = data.filter(cat => cat.name !== '全部');
-      const totalCount = filtered.reduce((sum, cat) => sum + cat.count, 0);
-      const categoriesWithAll = [
-        { id: 0, name: '全部', count: totalCount, href: '/', created_at: '' },
-        ...filtered
-      ];
-      setCategories(categoriesWithAll);
-      setStats({
-        newArticles: Math.floor(totalCount * 0.1),
-        totalViews: Math.floor(totalCount * 15),
-        totalUsers: Math.floor(totalCount * 3)
-      });
-    } catch (err) {
-      console.error('加载分类失败:', err);
+      setIsLoading(true);
+      setError(null);
+      
+      const data = await PageContentService.getPageNavigation();
+      setPageNavigation(data);
+      
+    } catch (error) {
+      console.error('加载页面导航失败:', error);
+      setError('加载失败，请刷新重试');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleCategoryClick = (categoryName: string) => {
-    onCategoryChange(categoryName);
+  // 单选逻辑：点击"全部"时只选全部，点击其他分类时只选该分类
+  const handleCategoryClick = (category: string) => {
+    if (category === '全部') {
+      onCategoryChange('全部');
+    } else {
+      onCategoryChange(category);
+    }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <aside className="w-64 bg-white shadow-sm border-r border-gray-200 h-screen sticky top-16 overflow-y-auto">
         <div className="p-4">
-          <div className="animate-pulse space-y-4">
-            <div className="h-6 bg-gray-300 rounded w-3/4"></div>
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex items-center space-x-3">
-                <div className="h-4 w-4 bg-gray-300 rounded"></div>
-                <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-                <div className="h-4 w-8 bg-gray-300 rounded ml-auto"></div>
-              </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">内容分类</h2>
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-10 bg-gray-200 rounded animate-pulse" />
             ))}
           </div>
+        </div>
+      </aside>
+    );
+  }
+
+  if (error) {
+    return (
+      <aside className="w-64 bg-white shadow-sm border-r border-gray-200 h-screen sticky top-16 overflow-y-auto">
+        <div className="p-4">
+          <div className="text-red-500 text-sm">{error}</div>
         </div>
       </aside>
     );
@@ -108,65 +79,72 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
   return (
     <aside className="w-64 bg-white shadow-sm border-r border-gray-200 h-screen sticky top-16 overflow-y-auto">
       <div className="p-4">
-        {/* 分类导航 */}
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">内容分类</h3>
-          <nav className="space-y-1">
-            {categories.map((category, index) => (
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">内容分类</h2>
+        
+        <nav className="space-y-1">
+          {pageNavigation.map((page) => {
+            const isActive = selectedCategory === page.name;
+            return (
               <button
-                key={category.id || `category-${index}`}
-                onClick={() => handleCategoryClick(category.name)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-gray-100 transition-colors group ${
-                  currentCategory === category.name
-                    ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                    : 'text-gray-700 hover:text-blue-600'
-                }`}
+                key={page.id}
+                type="button"
+                onClick={() => handleCategoryClick(page.name)}
+                className={`
+                  w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${isActive 
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }
+                `}
               >
-                <div className="flex items-center space-x-3">
-                  <span className="text-lg group-hover:scale-110 transition-transform">
-                    {categoryIcons[category.name] || '📁'}
-                  </span>
-                  <span className="font-medium">{category.name}</span>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full group-hover:bg-blue-100 transition-colors ${
-                  currentCategory === category.name
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'text-gray-500 bg-gray-100'
-                }`}>
-                  {category.count}
+                <span className="flex items-center">
+                  {page.icon && <span className="mr-2">{page.icon}</span>}
+                  {page.name}
+                </span>
+                <span className={`
+                  text-xs px-2 py-1 rounded-full
+                  ${isActive 
+                    ? 'bg-blue-100 text-blue-600' 
+                    : 'bg-gray-100 text-gray-500'
+                  }
+                `}>
+                  {page.count}
                 </span>
               </button>
-            ))}
-          </nav>
-        </div>
+            );
+          })}
+        </nav>
 
-        {/* 热门话题 */}
-        <div className="mb-8">
+        {/* 热门话题卡片 */}
+        <div className="my-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">热门话题</h3>
           <div className="space-y-2">
-            {hotTopics.map((topic, index) => (
+            {[
+              { name: 'ChatGPT', count: 145 },
+              { name: 'Stable Diffusion', count: 98 },
+              { name: 'GPT-4', count: 87 },
+              { name: 'AI绘画', count: 76 },
+              { name: '智能客服', count: 65 },
+              { name: 'AI写作', count: 54 },
+              { name: '语音识别', count: 43 },
+              { name: '图像识别', count: 32 },
+            ].map((topic, idx) => (
               <div
                 key={topic.name}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors group"
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center space-x-3">
-                  <span className="text-sm font-medium text-blue-600 group-hover:text-blue-700">
-                    #{index + 1}
-                  </span>
-                  <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                    {topic.name}
-                  </span>
+                  <span className="text-sm font-bold text-blue-600">{`#${idx + 1}`}</span>
+                  <span className="text-sm text-gray-800">{topic.name}</span>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {topic.count}篇
-                </span>
+                <span className="text-xs text-gray-400">{topic.count}篇</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* 网站统计 */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+        {/* 网站统计卡片 */}
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow mb-4">
           <h4 className="font-semibold mb-2 flex items-center">
             <span className="mr-2">📊</span>
             网站统计
@@ -174,33 +152,40 @@ export default function Sidebar({ currentCategory = '全部', onCategoryChange }
           <div className="space-y-2 text-sm">
             <div className="flex justify-between items-center">
               <span>新增文章</span>
-              <span className="font-medium bg-white/20 px-2 py-1 rounded">
-                {stats.newArticles}
-              </span>
+              <span className="font-bold bg-white/20 px-2 py-1 rounded">7</span>
             </div>
             <div className="flex justify-between items-center">
               <span>总阅读量</span>
-              <span className="font-medium bg-white/20 px-2 py-1 rounded">
-                {stats.totalViews.toLocaleString()}
-              </span>
+              <span className="font-bold bg-white/20 px-2 py-1 rounded">1,050</span>
             </div>
             <div className="flex justify-between items-center">
               <span>文章总数</span>
-              <span className="font-medium bg-white/20 px-2 py-1 rounded">
-                {/* 文章总数直接用分类总和 */}
-                {categories.reduce((sum, cat) => sum + cat.count, 0)}
-              </span>
+              <span className="font-bold bg-white/20 px-2 py-1 rounded">140</span>
             </div>
           </div>
-          {/* 实时指示器 */}
           <div className="mt-3 flex items-center text-xs text-blue-100">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
             实时更新
           </div>
         </div>
 
-        {/* 快捷操作 */}
-        {/* ... 此处原有按钮已全部移除，如无内容则整个div一并删除 ... */}
+        {/* 统计信息 */}
+        {pageNavigation.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="text-xs text-gray-500 space-y-1">
+              <div className="flex justify-between">
+                <span>总文章数</span>
+                <span className="font-medium">
+                  {pageNavigation.reduce((sum, page) => sum + page.count, 0)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>活跃页面</span>
+                <span className="font-medium">{pageNavigation.length}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );

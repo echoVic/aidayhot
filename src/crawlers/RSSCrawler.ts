@@ -3,10 +3,10 @@ import { XMLParser } from 'fast-xml-parser';
 import got from 'got';
 import { BaseCrawler } from './BaseCrawler';
 import type {
-    CrawlerOptions,
-    CrawlerResult,
-    RSSFeed,
-    RSSItem
+  CrawlerOptions,
+  CrawlerResult,
+  RSSFeed,
+  RSSItem
 } from './types';
 
 interface ParsedRSSFeed {
@@ -55,6 +55,8 @@ export class RSSCrawler extends BaseCrawler {
         timeout: {
           request: this.options.timeout || 15000
         },
+        followRedirect: true,
+        maxRedirects: 10,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
           'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',

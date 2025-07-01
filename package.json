@@ -12,10 +12,12 @@
     "import-rss": "tsx scripts/importRSSSourcesFromFile.ts",
     "collect-rss": "tsx scripts/collectRSSDataSimple.ts",
     "collect-data": "tsx scripts/collectDataToSupabase.ts",
-    "update-category-stats": "tsx scripts/updateCategoryStats.ts",
-    "reset-categories": "tsx scripts/resetAndUpdateCategories.ts",
+    "update-openai": "tsx scripts/updateOpenAINews.ts",
     "update-article-categories": "tsx scripts/newUpdateArticleCategories.ts",
-    "sync-rss-sources": "tsx scripts/syncRSSSourcesFromCrawler.ts"
+    "sync-rss-sources": "tsx scripts/syncRSSSourcesFromCrawler.ts",
+    "migrate:check": "tsx scripts/migrateToCategoriesLess.ts check",
+    "migrate:drop-categories": "tsx scripts/migrateToCategoriesLess.ts drop-table",
+    "migrate:cleanup": "tsx scripts/cleanupCategoriesMigration.ts --force"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
@@ -24,7 +26,7 @@
     "cheerio": "^1.1.0",
     "dotenv": "^16.5.0",
     "fast-xml-parser": "^5.2.5",
-    "googleapis": "^150.0.1",
+    "googleapis": "^149.0.0",
     "got": "^14.4.7",
     "jsdom": "^26.1.0",
     "next": "15.3.4",
