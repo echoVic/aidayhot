@@ -35,7 +35,7 @@ export default function Home() {
           {/* 左侧边栏 - 桌面端显示 */}
           <div className="hidden lg:block">
             <Sidebar 
-              currentCategory={currentCategory}
+              selectedCategory={currentCategory}
               onCategoryChange={handleCategoryChange}
             />
           </div>
