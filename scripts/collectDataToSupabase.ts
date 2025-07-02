@@ -93,6 +93,9 @@ interface ArticleItem {
   repoId?: number;   // GitHub 特有的仓库 ID
 }
 
+// 在文件顶部添加本地失败计数Map
+const failCountMap = new Map<string, number>();
+
 // 解析命令行参数
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2);
@@ -132,13 +135,14 @@ function parseArgs(): ParsedArgs {
 }
 
 // 日志函数
-function log(message: string, type: 'info' | 'error' | 'success' = 'info'): void {
+function log(message: string, type: 'info' | 'warn' | 'error' | 'success' = 'info'): void {
   const timestamp = new Date().toISOString();
-  const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+  let prefix = 'ℹ️';
+  if (type === 'error') prefix = '❌';
+  else if (type === 'success') prefix = '✅';
+  else if (type === 'warn') prefix = '⚠️';
   const logMessage = `${timestamp} ${prefix} ${message}`;
-  
   console.log(logMessage);
-  
   try {
     fs.appendFileSync('collection_log.txt', logMessage + '\n');
   } catch (error) {
@@ -158,8 +162,209 @@ function calculateTimeRange(hoursBack: number): { fromTime: Date; toTime: Date }
   return { fromTime, toTime };
 }
 
-// 分类映射 - 已废弃，迁移到页面映射架构后不再使用
-// const CATEGORY_MAPPING: Record<string, string> = { ... };
+// 保存单篇文章到数据库的通用函数
+async function saveArticleToDatabase(
+  item: ArticleItem, 
+  source: string, 
+  sourceStats: SourceStats, 
+  stats: CollectionStats, 
+  options: ParsedArgs
+): Promise<void> {
+  try {
+    // 生成唯一的内容ID和文章ID
+    const crypto = require('crypto');
+    const urlHash = crypto.createHash('md5').update(item.url).digest('hex').substring(0, 16);
+    const contentId = `${item.source}_${urlHash}`;  // 使用hash缩短长度
+    const articleId = `${item.source}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // 直接保存原始分类
+    const articleData: any = {
+      id: articleId,
+      title: item.title,
+      summary: item.description || '',
+      category: item.category || '其他', // 不再做映射
+      author: item.author || '',
+      publish_time: item.publishedDate ? new Date(item.publishedDate).toISOString() : new Date().toISOString(),
+      source_url: item.url,
+      source_type: item.source,
+      content_id: contentId,
+      tags: item.tags || [],
+      is_new: true,
+      is_hot: false,
+      views: 0,
+      likes: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // 为特定源添加额外字段
+    if (item.source === 'arxiv' && (item as any).arxivId) {
+      articleData.arxiv_id = (item as any).arxivId;
+      if (options.verbose) {
+        log(`${source}: 添加ArXiv ID: ${(item as any).arxivId}`, 'info');
+      }
+    }
+    if (item.source === 'github' && (item as any).repoId) {
+      // GitHub repo_id 暂时设为null，因为我们当前使用的是hash字符串而不是数字ID
+      articleData.repo_id = null;
+      if (options.verbose) {
+        log(`${source}: GitHub仓库hash: ${(item as any).repoId}`, 'info');
+      }
+    }
+
+    // 数据验证
+    const requiredFields = ['id', 'title', 'source_url', 'source_type', 'content_id'];
+    const missingFields = requiredFields.filter(field => !articleData[field]);
+    if (missingFields.length > 0) {
+      log(`${source}: 数据验证失败，缺少必需字段: ${missingFields.join(', ')}`, 'error');
+      if (options.verbose) {
+        log(`完整数据: ${JSON.stringify(articleData, null, 2)}`, 'error');
+      }
+      throw new Error(`缺少必需字段: ${missingFields.join(', ')}`);
+    }
+
+    // 新的表结构使用更合理的字段长度，只做基本的长度检查
+    if (articleData.title && articleData.title.length > 1000) {
+      articleData.title = articleData.title.substring(0, 997) + '...';
+      log(`${source}: 标题过长，已截断`, 'info');
+    }
+    
+    if (articleData.summary && articleData.summary.length > 5000) {
+      articleData.summary = articleData.summary.substring(0, 4997) + '...';
+      log(`${source}: 摘要过长，已截断`, 'info');
+    }
+    
+    if (articleData.category && articleData.category.length > 100) {
+      articleData.category = articleData.category.substring(0, 97) + '...';
+      log(`${source}: 分类名称过长，已截断`, 'info');
+    }
+
+    // 详细调试信息
+    if (options.verbose) {
+      log(`${source}: 准备保存文章数据: ${JSON.stringify({
+        id: articleData.id,
+        title: articleData.title.substring(0, 50) + '...',
+        content_id: articleData.content_id,
+        source_type: articleData.source_type
+      })}`, 'info');
+    }
+
+    // 先尝试查找是否已存在相同内容（添加超时）
+    const { data: existingData } = await Promise.race([
+      supabase
+        .from('articles')
+        .select('id')
+        .eq('content_id', articleData.content_id)
+        .limit(1),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('查询超时')), 10000)
+      )
+    ]) as any;
+
+    let data, error;
+    
+    if (existingData && existingData.length > 0) {
+      // 如果存在，更新现有记录（添加超时）
+      const updateResult = await Promise.race([
+        supabase
+          .from('articles')
+          .update(articleData)
+          .eq('content_id', articleData.content_id)
+          .select(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('更新超时')), 15000)
+        )
+      ]) as any;
+      data = updateResult.data;
+      error = updateResult.error;
+      if (options.verbose && !error) {
+        log(`${source}: 更新已存在的文章`, 'info');
+      }
+    } else {
+      // 如果不存在，插入新记录（添加超时）
+      const insertResult = await Promise.race([
+        supabase
+          .from('articles')
+          .insert([articleData])
+          .select(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('插入超时')), 15000)
+        )
+      ]) as any;
+      data = insertResult.data;
+      error = insertResult.error;
+      if (options.verbose && !error) {
+        log(`${source}: 插入新文章`, 'info');
+      }
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    if (options.verbose && data) {
+      log(`${source}: 数据库返回: ${JSON.stringify(data)}`, 'info');
+    }
+
+    sourceStats.success++;
+    stats.success++;
+    
+    if (options.verbose) {
+      log(`${source}: 保存文章 "${item.title}"`, 'success');
+    }
+  } catch (error) {
+    sourceStats.errors++;
+    stats.errors++;
+    stats.saveErrors++;
+    
+    // 详细错误日志 - 始终显示基本信息
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    log(`${source}: 保存文章失败 - ${errorMessage}`, 'error');
+    log(`${source}: 失败文章标题: "${item.title}"`, 'error');
+    log(`${source}: 失败文章URL: ${item.url}`, 'error');
+    
+    if (options.verbose) {
+      // 输出完整的错误对象
+      try {
+        log(`${source}: 完整错误对象: ${JSON.stringify(error, null, 2)}`, 'error');
+      } catch (jsonError) {
+        log(`${source}: 无法序列化错误对象: ${String(error)}`, 'error');
+      }
+    }
+    
+    // 如果是 Supabase 错误，显示更多信息
+    if (error && typeof error === 'object') {
+      if ('code' in error) {
+        const code = (error as any).code;
+        log(`${source}: Supabase错误代码: ${code}`, 'error');
+        
+        if (code === '23505') {
+          log(`${source}: 解决方案 - 唯一约束冲突，可能是重复数据`, 'error');
+        } else if (code === '23502') {
+          log(`${source}: 解决方案 - 非空约束违反，检查必需字段`, 'error');
+        } else if (code === '23503') {
+          log(`${source}: 解决方案 - 外键约束违反，检查分类是否存在`, 'error');
+        } else if (code === 'PGRST116') {
+          log(`${source}: 解决方案 - 权限问题，检查RLS策略`, 'error');
+        }
+      }
+      
+      if ('message' in error) {
+        log(`${source}: Supabase错误消息: ${(error as any).message}`, 'error');
+      }
+      
+      if ('details' in error) {
+        log(`${source}: Supabase错误详情: ${JSON.stringify((error as any).details)}`, 'error');
+      }
+      
+      if ('hint' in error) {
+        log(`${source}: Supabase错误提示: ${(error as any).hint}`, 'error');
+      }
+    }
+    
+    throw error; // 重新抛出错误，让调用方处理
+  }
+}
 
 async function collectData(): Promise<void> {
   const options = parseArgs();
@@ -372,7 +577,7 @@ async function collectData(): Promise<void> {
             log('📖 [RSS] 从数据库获取RSS源...', 'info');
             const { data: feedSources, error: dbError } = await supabase
               .from('feed_sources')
-              .select('name, url')
+              .select('name, url, category')
               .eq('is_active', true);
 
             if (dbError) {
@@ -392,39 +597,104 @@ async function collectData(): Promise<void> {
 
             const rssFeeds = feedSources.reduce((acc, source) => {
               if (source.name && source.url) {
-                acc[source.name] = source.url;
+                acc[source.name] = { url: source.url, category: source.category || 'RSS文章' };
               }
               return acc;
-            }, {} as Record<string, string>);
+            }, {} as Record<string, { url: string; category: string }>);
 
-            const feedResults = await crawler.fetchMultipleRSSFeeds(rssFeeds);
-            
-            for (const [feedName, feedResult] of Object.entries(feedResults) as [string, any][]) {
-              if (feedResult.success && feedResult.data && feedResult.data.items) {
-                let items = feedResult.data.items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
-                
+            // 新主循环：每个源单独重试3次，成功即保存，失败则下线
+            for (const [feedName, feedInfo] of Object.entries(rssFeeds)) {
+              let feedResult;
+              let success = false;
+              let items: any[] = [];
+              let lastError = '';
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                log(`[RSS] 源 ${feedName} 第${attempt}次采集...`, 'info');
+                feedResult = await crawler.crawl(feedInfo.url, { sourceId: feedName });
+                if (feedResult.success && feedResult.data && feedResult.data.items) {
+                  success = true;
+                  items = feedResult.data.items;
+                  if (attempt > 1) {
+                    log(`[RSS] 源 ${feedName} 第${attempt}次尝试采集成功`, 'success');
+                  }
+                  break;
+                } else {
+                  lastError = feedResult.error || '未知错误';
+                  log(`[RSS] 源 ${feedName} 第${attempt}次采集失败: ${lastError}`, attempt < 3 ? 'warn' : 'error');
+                }
+              }
+              if (!success) {
+                log(`[RSS] 源 ${feedName} 连续3次采集失败，自动标记为无效（is_active=false）`, 'warn');
+                try {
+                  await supabase.from('feed_sources').update({ is_active: false }).eq('name', feedName);
+                } catch (e) {
+                  const errMsg = (typeof e === 'object' && e && 'message' in e) ? (e as any).message : String(e);
+                  log(`[RSS] 标记无效源失败: ${feedName} - ${errMsg}`, 'error');
+                }
+                continue;
+              } else {
+                // 采集成功，自动恢复is_active=true
+                try {
+                  await supabase.from('feed_sources').update({ is_active: true }).eq('name', feedName);
+                  log(`[RSS] 源 ${feedName} 采集成功，自动恢复为活跃（is_active=true）`, 'info');
+                } catch (e) {
+                  const errMsg = (typeof e === 'object' && e && 'message' in e) ? (e as any).message : String(e);
+                  log(`[RSS] 恢复活跃源失败: ${feedName} - ${errMsg}`, 'error');
+                }
+              }
+              // 保存items到results
+              if (items.length > 0) {
+                let filteredItems = items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
                 // 如果启用了时间过滤，过滤RSS条目
                 if (fromTime) {
-                  items = items.filter((item: any) => {
+                  filteredItems = filteredItems.filter((item: any) => {
                     if (!item.pubDate) return false; // 如果没有发布时间，跳过
                     const pubDate = new Date(item.pubDate);
                     return pubDate >= fromTime! && pubDate <= toTime;
                   });
-                  log(`${source}: 时间过滤后保留 ${items.length} 条RSS文章`, 'info');
+                  log(`[RSS] 源 ${feedName}: 时间过滤后保留 ${filteredItems.length} 条RSS文章`, 'info');
                 }
                 
-                results.push(...items.map((item: any) => ({
+                // 先转换成统一的ArticleItem结构，使用feed_sources的category
+                const articleItems: ArticleItem[] = filteredItems.map((item: any) => ({
                   title: item.title,
-                  url: item.link,  // 使用正确的URL字段
+                  url: item.link || item.url || '',
                   description: (item.description || item.content || '').substring(0, 500) + (((item.description || item.content || '').length > 500) ? '...' : ''),
                   author: item.author || feedName,
                   publishedDate: item.pubDate ? item.pubDate.toISOString() : new Date().toISOString(),
-                  category: 'RSS文章',
+                  category: feedInfo.category, // 使用feed_sources表中的category
                   tags: item.categories || [],
                   source: 'rss'
-                })));
+                }));
+
+                // 立即保存，不要放入results数组等批量保存
+                if (canSaveToDatabase && supabase && articleItems.length > 0) {
+                  for (const articleItem of articleItems) {
+                    try {
+                      await saveArticleToDatabase(articleItem, source, sourceStats, stats, options);
+                    } catch (error) {
+                      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                      log(`[RSS] 保存文章异常 ${feedName}: ${errorMessage}`, 'error');
+                      // 错误统计已在saveArticleToDatabase函数内处理，这里不重复计数
+                    }
+                  }
+                  sourceStats.total += articleItems.length;
+                  stats.crawlerSuccess += articleItems.length;
+                } else {
+                  // 测试模式或无数据库连接
+                  results.push(...articleItems);
+                  sourceStats.total += articleItems.length;
+                  stats.crawlerSuccess += articleItems.length;
+                  log(`[RSS] 源 ${feedName} 测试模式 - 模拟保存 ${articleItems.length} 条文章`, 'info');
+                }
+                log(`[RSS] 源 ${feedName} 处理完成`, 'success');
+              } else {
+                log(`[RSS] 源 ${feedName} 采集成功但无有效内容`, 'warn');
               }
             }
+            
+            // RSS源处理完成，跳过后续的批量保存逻辑
+            results = []; // 清空results，避免重复处理
             break;
           }
 
@@ -541,173 +811,13 @@ async function collectData(): Promise<void> {
         if (canSaveToDatabase && supabase) {
           for (const item of results) {
             try {
-              // 为单个数据源设置独立的超时检查（每个源有15分钟的独立时间）
-              const sourceTimeoutMs = 15 * 60 * 1000; // 15分钟
-              if (Date.now() - sourceStartTime > sourceTimeoutMs) {
-                log(`${source}: 数据源处理超时（${Math.floor((Date.now() - sourceStartTime) / 1000)}秒），停止处理剩余文章`, 'error');
-                break; // 跳出当前源的处理，但不抛出错误
-              }
-
-              // 生成唯一的内容ID和文章ID
-              const crypto = require('crypto');
-              const urlHash = crypto.createHash('md5').update(item.url).digest('hex').substring(0, 16);
-              const contentId = `${item.source}_${urlHash}`;  // 使用hash缩短长度
-              const articleId = `${item.source}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-              // 直接保存原始分类
-              const articleData: any = {
-                id: articleId,
-                title: item.title,
-                summary: item.description || '',
-                category: item.category || '其他', // 不再做映射
-                author: item.author || '',
-                publish_time: item.publishedDate ? new Date(item.publishedDate).toISOString() : new Date().toISOString(),
-                source_url: item.url,
-                source_type: item.source,
-                content_id: contentId,
-                tags: item.tags || [],
-                is_new: true,
-                is_hot: false,
-                views: 0,
-                likes: 0,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              };
-
-              // 为特定源添加额外字段
-              if (item.source === 'arxiv' && (item as any).arxivId) {
-                articleData.arxiv_id = (item as any).arxivId;
-                if (options.verbose) {
-                  log(`${source}: 添加ArXiv ID: ${(item as any).arxivId}`, 'info');
-                }
-              }
-              if (item.source === 'github' && (item as any).repoId) {
-                // GitHub repo_id 暂时设为null，因为我们当前使用的是hash字符串而不是数字ID
-                articleData.repo_id = null;
-                if (options.verbose) {
-                  log(`${source}: GitHub仓库hash: ${(item as any).repoId}`, 'info');
-                }
-              }
-
-              // 数据验证
-              const requiredFields = ['id', 'title', 'source_url', 'source_type', 'content_id'];
-              const missingFields = requiredFields.filter(field => !articleData[field]);
-              if (missingFields.length > 0) {
-                log(`${source}: 数据验证失败，缺少必需字段: ${missingFields.join(', ')}`, 'error');
-                if (options.verbose) {
-                  log(`完整数据: ${JSON.stringify(articleData, null, 2)}`, 'error');
-                }
-                throw new Error(`缺少必需字段: ${missingFields.join(', ')}`);
-              }
-
-              // 新的表结构使用更合理的字段长度，只做基本的长度检查
-              if (articleData.title && articleData.title.length > 1000) {
-                articleData.title = articleData.title.substring(0, 997) + '...';
-                log(`${source}: 标题过长，已截断`, 'info');
-              }
-              
-              if (articleData.summary && articleData.summary.length > 5000) {
-                articleData.summary = articleData.summary.substring(0, 4997) + '...';
-                log(`${source}: 摘要过长，已截断`, 'info');
-              }
-              
-              if (articleData.category && articleData.category.length > 100) {
-                articleData.category = articleData.category.substring(0, 97) + '...';
-                log(`${source}: 分类名称过长，已截断`, 'info');
-              }
-
-              // 详细调试信息
-              if (options.verbose) {
-                log(`${source}: 准备保存文章数据: ${JSON.stringify({
-                  id: articleData.id,
-                  title: articleData.title.substring(0, 50) + '...',
-                  content_id: articleData.content_id,
-                  source_type: articleData.source_type
-                })}`, 'info');
-              }
-
-              // 先尝试查找是否已存在相同内容（添加超时）
-              const { data: existingData } = await Promise.race([
-                supabase
-                  .from('articles')
-                  .select('id')
-                  .eq('content_id', articleData.content_id)
-                  .limit(1),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error('查询超时')), 10000)
-                )
-              ]) as any;
-
-              let data, error;
-              
-              if (existingData && existingData.length > 0) {
-                // 如果存在，更新现有记录（添加超时）
-                const updateResult = await Promise.race([
-                  supabase
-                    .from('articles')
-                    .update(articleData)
-                    .eq('content_id', articleData.content_id)
-                    .select(),
-                  new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('更新超时')), 15000)
-                  )
-                ]) as any;
-                data = updateResult.data;
-                error = updateResult.error;
-                if (options.verbose && !error) {
-                  log(`${source}: 更新已存在的文章`, 'info');
-                }
-              } else {
-                // 如果不存在，插入新记录（添加超时）
-                const insertResult = await Promise.race([
-                  supabase
-                    .from('articles')
-                    .insert([articleData])
-                    .select(),
-                  new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('插入超时')), 15000)
-                  )
-                ]) as any;
-                data = insertResult.data;
-                error = insertResult.error;
-                if (options.verbose && !error) {
-                  log(`${source}: 插入新文章`, 'info');
-                }
-              }
-
-              if (error) {
-                // 详细的错误信息
-                log(`${source}: Supabase错误详情:`, 'error');
-                log(`  - 错误代码: ${error.code}`, 'error');
-                log(`  - 错误消息: ${error.message}`, 'error');
-                log(`  - 错误详情: ${JSON.stringify(error.details)}`, 'error');
-                log(`  - 错误提示: ${error.hint}`, 'error');
-                log(`  - 尝试插入的数据: ${JSON.stringify(articleData, null, 2)}`, 'error');
-                throw error;
-              }
-
-              if (options.verbose && data) {
-                log(`${source}: 数据库返回: ${JSON.stringify(data)}`, 'info');
-              }
-
-              sourceStats.success++;
-              stats.success++;
-              
-              if (options.verbose) {
-                log(`${source}: 保存文章 "${item.title}"`, 'success');
-              }
+              await saveArticleToDatabase(item, source, sourceStats, stats, options);
             } catch (error) {
-              sourceStats.errors++;
-              stats.errors++;
-              stats.saveErrors++;
-              
-              // 详细错误日志 - 始终显示基本信息
               const errorMessage = error instanceof Error ? error.message : 'Unknown error';
               log(`${source}: 保存文章失败 - ${errorMessage}`, 'error');
               log(`${source}: 失败文章标题: "${item.title}"`, 'error');
               log(`${source}: 失败文章URL: ${item.url}`, 'error');
               
-              // 详细的错误信息
               if (error instanceof Error) {
                 log(`${source}: 错误类型: ${error.constructor.name}`, 'error');
                 if (error.stack) {

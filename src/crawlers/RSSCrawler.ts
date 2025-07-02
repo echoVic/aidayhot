@@ -3,10 +3,10 @@ import { XMLParser } from 'fast-xml-parser';
 import got from 'got';
 import { BaseCrawler } from './BaseCrawler';
 import type {
-  CrawlerOptions,
-  CrawlerResult,
-  RSSFeed,
-  RSSItem
+    CrawlerOptions,
+    CrawlerResult,
+    RSSFeed,
+    RSSItem
 } from './types';
 
 interface ParsedRSSFeed {

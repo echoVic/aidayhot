@@ -12,7 +12,7 @@ export const PAGE_CONFIGS: Record<string, PageConfig> = {
   // 首页 - 综合资讯和RSS文章
   homepage: {
     sourceTypes: ['rss', 'openai'],
-    feedCategories: ['AI/机器学习', '新闻/资讯'],
+    feedCategories: ['AI/机器学习', '新闻/资讯', 'RSS文章'],
     title: '每日热点',
     description: '最新的AI资讯、技术动态和行业新闻'
   },
@@ -20,7 +20,7 @@ export const PAGE_CONFIGS: Record<string, PageConfig> = {
   // 技术动态 - GitHub项目和技术问答
   tech: {
     sourceTypes: ['github', 'stackoverflow'],
-    feedCategories: ['技术/开发'],
+    feedCategories: ['技术/开发', 'RSS文章'],
     title: '技术动态', 
     description: '最新的开源项目、技术问答和开发趋势'
   },
@@ -36,7 +36,7 @@ export const PAGE_CONFIGS: Record<string, PageConfig> = {
   // 社区动态 - 社交媒体和播客内容
   community: {
     sourceTypes: ['rss'],
-    feedCategories: ['社交媒体', '播客'], 
+    feedCategories: ['社交媒体', '播客', 'RSS文章'],
     title: '社区动态',
     description: '社交媒体讨论、播客节目和社区观点'
   },
@@ -104,6 +104,7 @@ export const RSS_CATEGORY_MAPPING: Record<string, string> = {
   '学术/研究': '🔬 学术研究',
   '社交媒体': '💬 社区讨论',
   '设计/用户体验': '🎨 设计灵感',
+  'RSS文章': '📄 综合内容',
   '其他': '📋 其他内容'
 };
 
