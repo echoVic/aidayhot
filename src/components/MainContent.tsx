@@ -117,10 +117,70 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
     };
   }, [loadArticles]);
 
+  // 滚动到底部自动加载更多
+  useEffect(() => {
+    const handleScroll = () => {
+      // 检查是否滚动到接近底部（距离底部100px以内）
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      if (scrollTop + windowHeight >= documentHeight - 100) {
+        // 如果有更多数据且当前没有在加载中，则自动加载更多
+        if (pagination.hasMore && !loadingMore && !loading) {
+          loadMoreArticles();
+        }
+      }
+    };
+
+    // 添加滚动事件监听器，使用节流避免频繁触发
+    let timeoutId: NodeJS.Timeout;
+    const throttledHandleScroll = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(handleScroll, 200);
+    };
+
+    window.addEventListener('scroll', throttledHandleScroll);
+
+    return () => {
+      window.removeEventListener('scroll', throttledHandleScroll);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [pagination.hasMore, loadingMore, loading, loadMoreArticles]);
+
   // 只执行最新排序，其他选项暂不处理
   const sortedArticles = [...articles].sort((a, b) =>
     new Date(b.publish_time).getTime() - new Date(a.publish_time).getTime()
   );
+
+  // 按日期分组文章
+  const groupedArticles = sortedArticles.reduce((groups, article) => {
+    const publishDate = new Date(article.publish_time);
+    const dateKey = publishDate.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
+    });
+
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
+    groups[dateKey].push(article);
+    return groups;
+  }, {} as Record<string, Article[]>);
+
+  // 获取排序后的日期键
+  const sortedDateKeys = Object.keys(groupedArticles).sort((a, b) => {
+    // 通过第一篇文章的时间来排序日期
+    const dateA = new Date(groupedArticles[a][0].publish_time);
+    const dateB = new Date(groupedArticles[b][0].publish_time);
+    return dateB.getTime() - dateA.getTime();
+  });
 
   // 处理文章点击（增加浏览量）
   const handleArticleClick = useCallback(async (articleId: string) => {
@@ -239,41 +299,83 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
         </div>
       ) : (
         <>
-          <div className={`${
-            viewMode === 'grid' 
-              ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6' 
-              : 'space-y-4'
-          }`}>
-            {sortedArticles.map((article) => (
-                             <ArticleCard 
-                 key={article.id} 
-                 article={article} 
-                 layout={viewMode}
-                 onClick={() => handleArticleClick(article.id)}
-               />
+          {/* 按日期分组显示文章 */}
+          <div className="space-y-10">
+            {sortedDateKeys.map((dateKey, index) => (
+              <div key={dateKey} className={`space-y-6 ${index > 0 ? 'pt-6 border-t border-gray-100' : ''}`}>
+                {/* 日期标题 */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500 p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center justify-center w-12 h-12 bg-blue-500 rounded-full">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-1">{dateKey}</h3>
+                        <p className="text-sm text-blue-600 font-medium">共 {groupedArticles[dateKey].length} 篇文章</p>
+                      </div>
+                    </div>
+                    <div className="hidden sm:flex items-center space-x-2 text-xs text-gray-500">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>按时间排序</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 该日期下的文章列表 */}
+                <div className={`${
+                  viewMode === 'grid'
+                    ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+                    : 'space-y-3'
+                } bg-gray-50 rounded-lg p-4`}>
+                  {groupedArticles[dateKey].map((article) => (
+                    <ArticleCard
+                      key={article.id}
+                      article={article}
+                      layout={viewMode}
+                      onClick={() => handleArticleClick(article.id)}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
-          {/* 加载更多按钮 */}
+          {/* 自动加载状态指示器 */}
           {pagination.hasMore && (
             <div className="mt-8 text-center">
-              <button
-                onClick={loadMoreArticles}
-                disabled={loadingMore}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loadingMore ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    加载中...
-                  </>
-                ) : (
-                  '加载更多'
-                )}
-              </button>
+              {loadingMore ? (
+                <div className="inline-flex items-center px-6 py-4 bg-white rounded-lg shadow-sm border border-gray-200">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-gray-600 font-medium">正在加载更多文章...</span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center px-6 py-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <svg className="w-5 h-5 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                  <span className="text-blue-600 font-medium">滚动到底部自动加载更多</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 没有更多数据时的提示 */}
+          {!pagination.hasMore && sortedArticles.length > 0 && (
+            <div className="mt-8 text-center">
+              <div className="inline-flex items-center px-6 py-4 bg-gray-50 rounded-lg border border-gray-200">
+                <svg className="w-5 h-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-gray-500 font-medium">已加载全部文章</span>
+              </div>
             </div>
           )}
         </>
