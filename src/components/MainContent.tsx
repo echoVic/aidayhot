@@ -200,7 +200,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
 
   if (loading) {
     return (
-      <main className="flex-1 bg-gray-50 p-6">
+      <main className="flex-1 min-w-0 bg-gray-50 p-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-spin">
             <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,27 +216,27 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
 
   if (error && articles.length === 0) {
     return (
-      <main className="flex-1 bg-gray-50 p-6">
+      <main className="flex-1 min-w-0 bg-gray-50 p-6">
         <DataLoadError onRetry={resetAndReload} />
       </main>
     );
   }
 
   return (
-    <main className="flex-1 bg-gray-50 p-6">
+    <main className="flex-1 min-w-0 bg-gray-50 p-6">
       {/* 工具栏 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+          <div className="flex items-center space-x-4 min-w-0">
+            <h2 className="text-lg font-semibold text-gray-900 truncate">
               {category ? `${category} 相关文章` : searchQuery ? `搜索结果: "${searchQuery}"` : 'AI每日热点'}
             </h2>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500 whitespace-nowrap">
               共 {pagination.total} 篇文章 {pagination.total > 0 && `(显示 ${sortedArticles.length} 篇)`}
             </span>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
             {/* 视图模式切换 */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1">
               <button
@@ -329,7 +329,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
                 {/* 该日期下的文章列表 */}
                 <div className={`${
                   viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+                    ? 'grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6'
                     : 'space-y-3'
                 } bg-gray-50 rounded-lg p-4`}>
                   {groupedArticles[dateKey].map((article) => (

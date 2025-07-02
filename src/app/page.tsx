@@ -31,7 +31,7 @@ export default function Home() {
         <Header onSearch={handleSearch} />
 
         {/* 主要布局 */}
-        <div className="flex">
+        <div className="flex min-h-screen">
           {/* 左侧边栏 - 桌面端显示 */}
           <div className="hidden lg:block">
             <Sidebar 
