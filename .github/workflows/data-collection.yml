@@ -156,7 +156,6 @@ jobs:
         run: |
           echo "检查 TypeScript 脚本文件..."
           ls -la scripts/collectDataToSupabase.ts
-          ls -la scripts/updateCategoryStats.ts
           echo "✅ 脚本文件确认存在"
       
       - name: 配置环境变量
@@ -223,18 +222,11 @@ jobs:
           echo "执行命令: $CMD"
           eval $CMD
       
-      - name: 更新分类统计 - ${{ matrix.source }}
+      - name: 数据收集完成确认 - ${{ matrix.source }}
         if: success()
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "开始更新分类统计..."
-          
-          # 直接使用tsx运行TypeScript脚本
-          echo "执行分类统计更新..."
-          npx tsx scripts/updateCategoryStats.ts --verbose || echo "⚠️ 分类统计更新失败，但不影响主流程"
+          echo "✅ 数据源 ${{ matrix.source }} 收集完成"
+          echo "分类统计已在数据收集过程中实时更新"
       
       - name: 上传数据收集日志
         if: always()

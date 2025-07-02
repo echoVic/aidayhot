@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { useState } from 'react';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -42,7 +42,7 @@ export default function Header({ onSearch }: HeaderProps) {
             <Link href="/" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
               首页
             </Link>
-            <Link href="/category/technology" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+            <Link href="/tech" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
               技术动态
             </Link>
             <Link href="/category/industry" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">

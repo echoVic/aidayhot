@@ -286,6 +286,172 @@ export class ArticleService {
     const { error } = await supabase.rpc('increment_likes', { article_id: id });
     if (error) console.error('增加点赞数失败:', error);
   }
+
+  // 私有辅助函数：统一处理技术动态文章的获取逻辑
+  private static async _fetchTechArticles(options: {
+    sourceTypes: string[];
+    page: number;
+    pageSize: number;
+    searchQuery?: string;
+    techTags?: string[];
+    orderBy?: { column: string; ascending: boolean }[];
+  }): Promise<PaginatedResult<Article>> {
+    const { sourceTypes, page, pageSize, searchQuery, techTags, orderBy } = options;
+
+    // 检查 sourceTypes 是否为空
+    if (sourceTypes.length === 0) {
+      return {
+        data: [],
+        total: 0,
+        hasMore: false,
+        page,
+        pageSize
+      };
+    }
+
+    // 计算分页偏移量
+    const offset = (page - 1) * pageSize;
+
+    // 构建查询条件
+    let countQuery = supabase.from('articles')
+      .select('*', { count: 'exact', head: true })
+      .in('source_type', sourceTypes);
+
+    let dataQuery = supabase.from('articles')
+      .select('*')
+      .in('source_type', sourceTypes);
+
+    // 如果有搜索查询，添加搜索条件
+    if (searchQuery) {
+      const searchPattern = `%${searchQuery}%`;
+      const searchCondition = `title.ilike.${searchPattern},summary.ilike.${searchPattern}`;
+      countQuery = countQuery.or(searchCondition);
+      dataQuery = dataQuery.or(searchCondition);
+    }
+
+    // 如果有技术标签筛选，添加标签条件
+    if (techTags && techTags.length > 0) {
+      // 使用 OR 逻辑：文章包含任何一个选中的标签就符合条件
+      // 对于多个标签，我们需要分别查询每个标签，然后合并结果
+      // 但由于 Supabase 的限制，我们先实现单个标签的查询
+
+      // 为每个标签创建一个 contains 查询条件
+      if (techTags.length === 1) {
+        // 单个标签的情况，直接使用 contains
+        const tag = techTags[0];
+        countQuery = countQuery.contains('tags', `["${tag}"]`);
+        dataQuery = dataQuery.contains('tags', `["${tag}"]`);
+      } else {
+        // 多个标签的情况，我们需要分别查询然后合并结果
+        // 由于 Supabase 的 OR 查询限制，我们暂时只支持第一个标签
+        // TODO: 实现真正的多标签 OR 查询
+        const firstTag = techTags[0];
+        countQuery = countQuery.contains('tags', `["${firstTag}"]`);
+        dataQuery = dataQuery.contains('tags', `["${firstTag}"]`);
+      }
+    }
+
+    // 添加排序条件
+    if (orderBy && orderBy.length > 0) {
+      orderBy.forEach(order => {
+        dataQuery = dataQuery.order(order.column, { ascending: order.ascending });
+      });
+    } else {
+      // 默认排序
+      dataQuery = dataQuery
+        .order('publish_time', { ascending: false })
+        .order('created_at', { ascending: false });
+    }
+
+    // 添加分页
+    dataQuery = dataQuery.range(offset, offset + pageSize - 1);
+
+    // 并行执行查询
+    const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
+
+    // 错误处理
+    if (countResult.error) throw countResult.error;
+    if (dataResult.error) throw dataResult.error;
+
+    // 构造并返回结果
+    const total = countResult.count || 0;
+    return {
+      data: dataResult.data || [],
+      total,
+      hasMore: offset + pageSize < total,
+      page,
+      pageSize
+    };
+  }
+
+  // 按多个源类型获取文章（带分页和排序）- 用于技术动态页面
+  static async getBySourceTypes(
+    sourceTypes: string[],
+    page = 1,
+    pageSize = 20,
+    sortBy: 'latest' | 'popular' | 'trending' = 'latest',
+    techTags?: string[]
+  ): Promise<PaginatedResult<Article>> {
+    // 根据排序类型构建排序条件
+    let orderBy: { column: string; ascending: boolean }[] = [];
+    switch (sortBy) {
+      case 'popular':
+        orderBy = [
+          { column: 'views', ascending: false },
+          { column: 'likes', ascending: false },
+          { column: 'publish_time', ascending: false }
+        ];
+        break;
+      case 'trending':
+        orderBy = [
+          { column: 'is_hot', ascending: false },
+          { column: 'views', ascending: false },
+          { column: 'publish_time', ascending: false }
+        ];
+        break;
+      case 'latest':
+      default:
+        orderBy = [
+          { column: 'publish_time', ascending: false },
+          { column: 'created_at', ascending: false }
+        ];
+        break;
+    }
+
+    // 调用统一的私有辅助函数
+    return this._fetchTechArticles({
+      sourceTypes,
+      page,
+      pageSize,
+      techTags,
+      orderBy
+    });
+  }
+
+  // 在指定源类型中搜索文章（带分页）- 用于技术动态页面搜索
+  static async searchBySourceTypes(
+    query: string,
+    sourceTypes: string[],
+    page = 1,
+    pageSize = 20,
+    techTags?: string[]
+  ): Promise<PaginatedResult<Article>> {
+    // 搜索时使用默认的时间排序
+    const orderBy = [
+      { column: 'publish_time', ascending: false },
+      { column: 'created_at', ascending: false }
+    ];
+
+    // 调用统一的私有辅助函数
+    return this._fetchTechArticles({
+      sourceTypes,
+      page,
+      pageSize,
+      searchQuery: query,
+      techTags,
+      orderBy
+    });
+  }
 }
 
 // 辅助函数

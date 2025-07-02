@@ -26,6 +26,7 @@ export interface Article {
   source_category?: string
   created_at?: string
   updated_at?: string
+  metadata?: any
 }
 
 export interface Category {
