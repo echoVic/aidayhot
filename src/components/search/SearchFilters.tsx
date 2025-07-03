@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import { useMemoizedFn } from 'ahooks';
+import React, { useState } from 'react';
 import type { SearchFacets, SearchFilters } from '../../lib/search/types';
 
 interface SearchFiltersProps {
@@ -29,7 +30,7 @@ export default function SearchFiltersComponent({
     new Set(['category', 'author', 'dateRange'])
   );
 
-  const toggleSection = useCallback((section: string) => {
+  const toggleSection = useMemoizedFn((section: string) => {
     setExpandedSections(prev => {
       const newSet = new Set(prev);
       if (newSet.has(section)) {
@@ -39,20 +40,20 @@ export default function SearchFiltersComponent({
       }
       return newSet;
     });
-  }, []);
+  });
 
-  const handleFilterChange = useCallback((filterType: string, value: unknown) => {
+  const handleFilterChange = useMemoizedFn((filterType: string, value: unknown) => {
     onChange({ [filterType]: value });
-  }, [onChange]);
+  });
 
-  const handleArrayFilterToggle = useCallback((filterType: string, value: string) => {
+  const handleArrayFilterToggle = useMemoizedFn((filterType: string, value: string) => {
     const currentValues = (filters as Record<string, unknown>)[filterType] as string[] || [];
     const newValues = currentValues.includes(value)
       ? currentValues.filter((v: string) => v !== value)
       : [...currentValues, value];
     
     handleFilterChange(filterType, newValues);
-  }, [filters, handleFilterChange]);
+  });
 
   const hasActiveFilters = Object.values(filters).some(value => {
     if (Array.isArray(value)) return value.length > 0;

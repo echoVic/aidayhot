@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useMemoizedFn } from 'ahooks';
+import { useEffect, useState } from 'react';
 import { ArticleService, RealtimeService, type PaginatedResult } from '../lib/database';
 import type { Article } from '../lib/supabase';
 import ArticleCard from './ArticleCard';
@@ -30,7 +31,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   const PAGE_SIZE = 20;
 
   // 加载文章数据
-  const loadArticles = useCallback(async (page = 1, append = false, showToastMessage = true) => {
+  const loadArticles = useMemoizedFn(async (page = 1, append = false, showToastMessage = true) => {
     try {
       if (page === 1) {
         setLoading(true);
@@ -84,20 +85,20 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [searchQuery, category]);
+  });
 
   // 加载更多文章
-  const loadMoreArticles = useCallback(() => {
+  const loadMoreArticles = useMemoizedFn(() => {
     if (!loadingMore && pagination.hasMore) {
       loadArticles(pagination.page + 1, true);
     }
-  }, [loadArticles, loadingMore, pagination.hasMore, pagination.page]);
+  });
 
   // 重置并重新加载
-  const resetAndReload = useCallback(() => {
+  const resetAndReload = useMemoizedFn(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
     loadArticles(1, false);
-  }, [loadArticles]);
+  });
 
   useEffect(() => {
     resetAndReload();
@@ -183,7 +184,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   });
 
   // 处理文章点击（增加浏览量）
-  const handleArticleClick = useCallback(async (articleId: string) => {
+  const handleArticleClick = useMemoizedFn(async (articleId: string) => {
     try {
       await ArticleService.incrementViews(articleId);
       // 更新本地状态
@@ -196,7 +197,7 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
       console.error('更新浏览量失败:', err);
       showToast.warning('无法更新浏览量', '操作失败');
     }
-  }, []);
+  });
 
   if (loading) {
     return (

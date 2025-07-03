@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMemoizedFn } from 'ahooks';
+import { useEffect, useRef, useState } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { ArticleService, type PaginatedResult } from '../lib/database';
 import type { Article } from '../lib/supabase';
@@ -38,7 +39,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
   const isInitializing = useRef(false);
 
   // 加载技术动态数据
-  const loadTechArticles = useCallback(async (page = 1, append = false, showToastMessage = false) => {
+  const loadTechArticles = useMemoizedFn(async (page = 1, append = false, showToastMessage = false) => {
     try {
       console.log('📊 开始加载技术动态:', {
         page,
@@ -71,7 +72,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
       } else {
         // 按源类型获取文章
         result = await ArticleService.getBySourceTypes(
-          selectedSourceTypes,  
+          selectedSourceTypes,
           page,
           PAGE_SIZE,
           sortBy,
@@ -89,7 +90,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
 
       if (result.data) {
         const newArticles = result.data;
-        
+
         if (append && page > 1) {
           console.log('📝 追加文章到现有列表');
           setArticles(prev => [...prev, ...newArticles]);
@@ -116,7 +117,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
       const errorMessage = err instanceof Error ? err.message : '加载失败';
       console.error('加载技术动态失败:', err);
       setError(errorMessage);
-      
+
       if (showToastMessage) {
         showToast.error(errorMessage, '加载失败');
       }
@@ -124,7 +125,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [searchQuery, selectedSourceTypes, selectedTechTags, sortBy, articles.length]);
+  });
 
   // 初始加载
   useEffect(() => {
@@ -133,16 +134,16 @@ export default function TechContent({ searchQuery }: TechContentProps) {
       console.log('⚠️ 已在初始化中，跳过重复初始化');
       return;
     }
-    
+
     console.log('🔄 组件初始化，开始首次加载');
     isInitializing.current = true;
     isInitialized.current = true;
-    
+
     const initializeData = async () => {
       await loadTechArticles(1, false, false);
       isInitializing.current = false;
     };
-    
+
     initializeData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 空依赖数组，只在组件挂载时执行一次
@@ -172,7 +173,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
             );
           } else {
             result = await ArticleService.getBySourceTypes(
-              selectedSourceTypes,  
+              selectedSourceTypes,
               1,
               PAGE_SIZE,
               sortBy,
@@ -205,7 +206,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
   }, [selectedSourceTypes, selectedTechTags, sortBy, searchQuery]); // 移除 loadTechArticles 依赖
 
   // 加载更多
-  const loadMore = useCallback(() => {
+  const loadMore = useMemoizedFn(() => {
     console.log('🔄 loadMore 被调用:', {
       loading,
       loadingMore,
@@ -225,7 +226,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
         hasMore: pagination.hasMore
       });
     }
-  }, [loading, loadingMore, pagination.hasMore, pagination.page, pagination.total, articles.length, loadTechArticles]);
+  });
 
   // 实时订阅技术动态变化 - 暂时禁用以修复分页问题
   useEffect(() => {
@@ -270,15 +271,15 @@ export default function TechContent({ searchQuery }: TechContentProps) {
   }, []);
 
   // 重置并重新加载
-  const resetAndReload = useCallback(() => {
+  const resetAndReload = useMemoizedFn(() => {
     console.log('🔄 重置并重新加载数据');
     setPagination({ page: 1, hasMore: true, total: 0 });
     setArticles([]);
     loadTechArticles(1, false, false); // 不显示 toast
-  }, [loadTechArticles]);
+  });
 
   // 处理文章点击（增加浏览量）
-  const handleArticleClick = useCallback(async (articleId: string) => {
+  const handleArticleClick = useMemoizedFn(async (articleId: string) => {
     try {
       await ArticleService.incrementViews(articleId);
       setArticles(prev => prev.map(article =>
@@ -290,7 +291,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
       console.error('更新浏览量失败:', err);
       // 移除浏览量更新失败的toast，因为这是后台操作，不需要打扰用户
     }
-  }, []);
+  });
 
   // 按日期分组文章
   const groupedArticles = articles.reduce((groups, article) => {
@@ -331,12 +332,12 @@ export default function TechContent({ searchQuery }: TechContentProps) {
         {/* 调试信息 - 开发环境显示 */}
         {process.env.NODE_ENV === 'development' && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-xs">
-            <strong>调试信息:</strong> 
-            页面: {pagination.page} | 
-            总数: {pagination.total} | 
-            已显示: {articles.length} | 
-            还有更多: {pagination.hasMore ? '是' : '否'} | 
-            加载中: {loading ? '是' : '否'} | 
+            <strong>调试信息:</strong>
+            页面: {pagination.page} |
+            总数: {pagination.total} |
+            已显示: {articles.length} |
+            还有更多: {pagination.hasMore ? '是' : '否'} |
+            加载中: {loading ? '是' : '否'} |
             加载更多中: {loadingMore ? '是' : '否'}
           </div>
         )}

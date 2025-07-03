@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import { useMemoizedFn } from 'ahooks';
+import React from 'react';
 import type { SearchResult, SearchResultItem } from '../../lib/search/types';
 import OptimizedImage from '../OptimizedImage';
 
@@ -30,17 +31,17 @@ export default function SearchResults<T = Record<string, unknown>>({
   showSnippets = true,
   showMetadata = false,
 }: SearchResultsProps<T>) {
-  const handleItemClick = useCallback((item: SearchResultItem<T>, index: number) => {
+  const handleItemClick = useMemoizedFn((item: SearchResultItem<T>, index: number) => {
     onItemClick?.(item, index);
-  }, [onItemClick]);
+  });
 
-  const highlightText = useCallback((text: string): React.ReactNode => {
+  const highlightText = useMemoizedFn((text: string): React.ReactNode => {
     if (!highlightQuery) {
       return text;
     }
     // Simple highlighting - could be improved
     return <span>{text}</span>;
-  }, [highlightQuery]);
+  });
 
   if (results.items.length === 0 && !loading) {
     return (

@@ -1,15 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMemoizedFn } from 'ahooks';
+import { useEffect, useRef, useState } from 'react';
 import { defaultSearchEngine } from '../lib/search/SearchEngine';
 import type {
-  SearchFilters,
-  SearchQuery,
-  SearchResult,
-  SearchSort,
-  SearchSuggestion,
-  UseSearchOptions,
-  UseSearchReturn,
+    SearchFilters,
+    SearchQuery,
+    SearchResult,
+    SearchSort,
+    SearchSuggestion,
+    UseSearchOptions,
+    UseSearchReturn,
 } from '../lib/search/types';
 
 /**
@@ -39,7 +40,7 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
   const searchHistoryRef = useRef<string[]>([]);
 
   // Debounced search function
-  const debouncedSearch = useCallback(
+  const debouncedSearch = useMemoizedFn(
     (searchQuery: string, searchFilters: SearchFilters, searchSort: SearchSort) => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
@@ -53,13 +54,11 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
           setSuggestions([]);
         }
       }, debounceMs);
-    },
-    [debounceMs, minQueryLength]
+    }
   );
 
   // Perform actual search
-  const performSearch = useCallback(
-    async (searchQuery: string, searchFilters: SearchFilters, searchSort: SearchSort, page: number = 1) => {
+  const performSearch = useMemoizedFn(async (searchQuery: string, searchFilters: SearchFilters, searchSort: SearchSort, page: number = 1) => {
       // Cancel previous request
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -108,12 +107,10 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
       } finally {
         setIsLoading(false);
       }
-    },
-    []
-  );
+    });
 
   // Get search suggestions
-  const getSuggestions = useCallback(async (searchQuery: string) => {
+  const getSuggestions = useMemoizedFn(async (searchQuery: string) => {
     if (searchQuery.length < minQueryLength) {
       setSuggestions([]);
       return;
@@ -130,10 +127,10 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
       console.error('Suggestions error:', err);
       setSuggestions([]);
     }
-  }, [minQueryLength]);
+  });
 
   // Update query
-  const updateQuery = useCallback((newQuery: string) => {
+  const updateQuery = useMemoizedFn((newQuery: string) => {
     setQuery(newQuery);
     
     if (autoSearch) {
@@ -142,36 +139,36 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
     
     // Get suggestions
     getSuggestions(newQuery);
-  }, [autoSearch, filters, sort, debouncedSearch, getSuggestions]);
+  });
 
   // Update filters
-  const updateFilters = useCallback((newFilters: Partial<SearchFilters>) => {
+  const updateFilters = useMemoizedFn((newFilters: Partial<SearchFilters>) => {
     const updatedFilters = { ...filters, ...newFilters };
     setFilters(updatedFilters);
     
     if (autoSearch && query.length >= minQueryLength) {
       debouncedSearch(query, updatedFilters, sort);
     }
-  }, [filters, autoSearch, query, minQueryLength, sort, debouncedSearch]);
+  });
 
   // Update sort
-  const updateSort = useCallback((newSort: SearchSort) => {
+  const updateSort = useMemoizedFn((newSort: SearchSort) => {
     setSort(newSort);
     
     if (autoSearch && query.length >= minQueryLength) {
       debouncedSearch(query, filters, newSort);
     }
-  }, [autoSearch, query, minQueryLength, filters, debouncedSearch]);
+  });
 
   // Manual search
-  const search = useCallback(async () => {
+  const search = useMemoizedFn(async () => {
     if (query.length >= minQueryLength) {
       await performSearch(query, filters, sort);
     }
-  }, [query, filters, sort, minQueryLength, performSearch]);
+  });
 
   // Clear search
-  const clear = useCallback(() => {
+  const clear = useMemoizedFn(() => {
     setQuery('');
     setFilters({});
     setResults(null);
@@ -181,15 +178,15 @@ export function useSearch(options: UseSearchOptions = {}): UseSearchReturn {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
-  }, []);
+  });
 
   // Load more results
-  const loadMore = useCallback(async () => {
+  const loadMore = useMemoizedFn(async () => {
     if (results && results.hasMore && !isLoading) {
       const nextPage = results.page + 1;
       await performSearch(query, filters, sort, nextPage);
     }
-  }, [results, isLoading, query, filters, sort, performSearch]);
+  });
 
   // Cleanup
   useEffect(() => {
@@ -251,7 +248,7 @@ export function useSearchSuggestions(query: string, options: {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const getSuggestions = useCallback(async (searchQuery: string) => {
+  const getSuggestions = useMemoizedFn(async (searchQuery: string) => {
     if (searchQuery.length < minQueryLength) {
       setSuggestions([]);
       return;
@@ -272,7 +269,7 @@ export function useSearchSuggestions(query: string, options: {
     } finally {
       setIsLoading(false);
     }
-  }, [minQueryLength, maxSuggestions]);
+  });
 
   useEffect(() => {
     if (debounceRef.current) {
@@ -303,7 +300,7 @@ export function useSearchAnalytics() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const loadAnalytics = useCallback(async () => {
+  const loadAnalytics = useMemoizedFn(async () => {
     setIsLoading(true);
     
     try {
@@ -314,11 +311,11 @@ export function useSearchAnalytics() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  });
 
-  const getPopularQueries = useCallback((limit: number = 10) => {
+  const getPopularQueries = useMemoizedFn((limit: number = 10) => {
     return defaultSearchEngine.getPopularQueries(limit);
-  }, []);
+  });
 
   useEffect(() => {
     loadAnalytics();
@@ -338,20 +335,20 @@ export function useSearchAnalytics() {
 export function useSearchHistory() {
   const [history, setHistory] = useState<string[]>([]);
 
-  const addToHistory = useCallback((query: string) => {
+  const addToHistory = useMemoizedFn((query: string) => {
     setHistory(prev => {
       const filtered = prev.filter(q => q !== query);
       return [query, ...filtered].slice(0, 20); // Keep last 20
     });
-  }, []);
+  });
 
-  const removeFromHistory = useCallback((query: string) => {
+  const removeFromHistory = useMemoizedFn((query: string) => {
     setHistory(prev => prev.filter(q => q !== query));
-  }, []);
+  });
 
-  const clearHistory = useCallback(() => {
+  const clearHistory = useMemoizedFn(() => {
     setHistory([]);
-  }, []);
+  });
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -387,7 +384,7 @@ export function useFacetedSearch(initialQuery: string = '') {
   const [results, setResults] = useState<SearchResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const search = useCallback(async (page: number = 1) => {
+  const search = useMemoizedFn(async (page: number = 1) => {
     if (!query.trim()) return;
 
     setIsLoading(true);
@@ -408,9 +405,9 @@ export function useFacetedSearch(initialQuery: string = '') {
     } finally {
       setIsLoading(false);
     }
-  }, [query, selectedFacets]);
+  });
 
-  const toggleFacet = useCallback((facetType: string, value: string) => {
+  const toggleFacet = useMemoizedFn((facetType: string, value: string) => {
     setSelectedFacets(prev => {
       const current = prev[facetType] || [];
       const updated = current.includes(value)
@@ -422,17 +419,17 @@ export function useFacetedSearch(initialQuery: string = '') {
         [facetType]: updated,
       };
     });
-  }, []);
+  });
 
-  const clearFacets = useCallback(() => {
+  const clearFacets = useMemoizedFn(() => {
     setSelectedFacets({});
-  }, []);
+  });
 
-  const loadMore = useCallback(async () => {
+  const loadMore = useMemoizedFn(async () => {
     if (results?.hasMore && !isLoading) {
       await search(results.page + 1);
     }
-  }, [results, isLoading, search]);
+  });
 
   useEffect(() => {
     if (query.trim()) {

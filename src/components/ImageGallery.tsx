@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemoizedFn } from 'ahooks';
+import React, { useEffect, useMemo, useState } from 'react';
 import OptimizedImage from './OptimizedImage';
 
 interface ImageItem {
@@ -54,13 +55,13 @@ export default function ImageGallery({
     averageLoadTime: 0
   }));
   
-  const trackImageStart = useCallback(() => {
+  const trackImageStart = useMemoizedFn(() => {
     // Simple tracking without complex implementation
-  }, []);
+  });
   
-  const trackImageError = useCallback(() => {
+  const trackImageError = useMemoizedFn(() => {
     // Simple tracking without complex implementation
-  }, []);
+  });
 
   // Sort images by priority and preload high-priority ones
   const sortedImages = useMemo(() => {
@@ -78,27 +79,27 @@ export default function ImageGallery({
   }, [sortedImages, preloadCount]);
 
   // Handle image load
-  const handleImageLoad = useCallback((image: ImageItem, index: number) => {
+  const handleImageLoad = useMemoizedFn((image: ImageItem, index: number) => {
     setLoadedImages(prev => new Set(prev).add(image.id));
     onImageLoad?.(image, index);
-  }, [onImageLoad]);
+  });
 
   // Handle image error
-  const handleImageError = useCallback((image: ImageItem, index: number) => {
+  const handleImageError = useMemoizedFn((image: ImageItem, index: number) => {
     trackImageError();
     onImageError?.(image, index);
-  }, [trackImageError, onImageError]);
+  });
 
   // Handle image click
-  const handleImageClick = useCallback((image: ImageItem, index: number) => {
+  const handleImageClick = useMemoizedFn((image: ImageItem, index: number) => {
     setSelectedImage(image);
     onImageClick?.(image, index);
-  }, [onImageClick]);
+  });
 
   // Close modal
-  const closeModal = useCallback(() => {
+  const closeModal = useMemoizedFn(() => {
     setSelectedImage(null);
-  }, []);
+  });
 
   // Grid styles
   const gridStyles: React.CSSProperties = {
@@ -200,15 +201,15 @@ function ImageGridItem({
 }: ImageGridItemProps) {
   const [loadStartTime, setLoadStartTime] = useState<number>(0);
 
-  const handleLoadStart = useCallback(() => {
+  const handleLoadStart = useMemoizedFn(() => {
     setLoadStartTime(performance.now());
     onLoadStart();
-  }, [onLoadStart]);
+  });
 
-  const handleLoad = useCallback(() => {
+  const handleLoad = useMemoizedFn(() => {
     const loadTime = performance.now() - loadStartTime;
     onLoad();
-  }, [onLoad, loadStartTime]);
+  });
 
   return (
     <div

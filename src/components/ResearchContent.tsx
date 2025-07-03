@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMemoizedFn } from 'ahooks';
+import { useEffect, useRef, useState } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { ArticleService, type PaginatedResult } from '../lib/database';
 import type { Article } from '../lib/supabase';
@@ -106,7 +107,7 @@ export default function ResearchContent({ searchQuery }: ResearchContentProps) {
   };
 
   // 加载学术研究数据
-  const loadResearchArticles = useCallback(async (page = 1, append = false, showToastMessage = false) => {
+  const loadResearchArticles = useMemoizedFn(async (page = 1, append = false, showToastMessage = false) => {
     try {
       console.log('📚 开始加载学术研究:', {
         page,
@@ -186,14 +187,14 @@ export default function ResearchContent({ searchQuery }: ResearchContentProps) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [selectedSourceTypes, selectedCategories, sortBy, searchQuery, articles.length]);
+  });
 
   // 加载更多数据
-  const loadMore = useCallback(() => {
+  const loadMore = useMemoizedFn(() => {
     if (!loadingMore && pagination.hasMore) {
       loadResearchArticles(pagination.page + 1, true);
     }
-  }, [loadResearchArticles, loadingMore, pagination.hasMore, pagination.page]);
+  });
 
   // 初始化数据加载
   useEffect(() => {

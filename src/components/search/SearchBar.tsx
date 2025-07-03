@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useSearchSuggestions, useSearchHistory } from '../../hooks/useSearch';
+import { useMemoizedFn } from 'ahooks';
+import React, { useEffect, useRef, useState } from 'react';
+import { useSearchHistory, useSearchSuggestions } from '../../hooks/useSearch';
 import type { SearchSuggestion } from '../../lib/search/types';
 
 interface SearchBarProps {
@@ -52,15 +53,15 @@ export default function SearchBar({
   const { history, addToHistory, removeFromHistory } = useSearchHistory();
 
   // Handle input change
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useMemoizedFn((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setQuery(newValue);
     setSelectedIndex(-1);
     onChange?.(newValue);
-  }, [onChange]);
+  });
 
   // Handle search submission
-  const handleSearch = useCallback((searchQuery?: string) => {
+  const handleSearch = useMemoizedFn((searchQuery?: string) => {
     const finalQuery = searchQuery || query;
     if (finalQuery.trim()) {
       addToHistory(finalQuery.trim());
@@ -68,25 +69,25 @@ export default function SearchBar({
       setShowDropdown(false);
       inputRef.current?.blur();
     }
-  }, [query, addToHistory, onSearch]);
+  });
 
   // Handle suggestion selection
-  const handleSuggestionSelect = useCallback((suggestion: SearchSuggestion) => {
+  const handleSuggestionSelect = useMemoizedFn((suggestion: SearchSuggestion) => {
     setQuery(suggestion.text);
     onChange?.(suggestion.text);
     onSuggestionSelect?.(suggestion);
     handleSearch(suggestion.text);
-  }, [onChange, onSuggestionSelect, handleSearch]);
+  });
 
   // Handle history item selection
-  const handleHistorySelect = useCallback((historyItem: string) => {
+  const handleHistorySelect = useMemoizedFn((historyItem: string) => {
     setQuery(historyItem);
     onChange?.(historyItem);
     handleSearch(historyItem);
-  }, [onChange, handleSearch]);
+  });
 
   // Handle keyboard navigation
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = useMemoizedFn((e: React.KeyboardEvent) => {
     const items = [
       ...(showHistory ? history.slice(0, 3) : []),
       ...(showSuggestions ? suggestions.map(s => s.text) : []),
@@ -131,16 +132,16 @@ export default function SearchBar({
         }
         break;
     }
-  }, [selectedIndex, history, suggestions, showHistory, showSuggestions, handleHistorySelect, handleSuggestionSelect, handleSearch, onChange]);
+  });
 
   // Handle focus
-  const handleFocus = useCallback(() => {
+  const handleFocus = useMemoizedFn(() => {
     setIsFocused(true);
     setShowDropdown(true);
-  }, []);
+  });
 
   // Handle blur
-  const handleBlur = useCallback((e: React.FocusEvent) => {
+  const handleBlur = useMemoizedFn((e: React.FocusEvent) => {
     // Delay hiding dropdown to allow for clicks
     setTimeout(() => {
       if (!dropdownRef.current?.contains(document.activeElement)) {
@@ -149,7 +150,7 @@ export default function SearchBar({
         setSelectedIndex(-1);
       }
     }, 150);
-  }, []);
+  });
 
   // Click outside handler
   useEffect(() => {

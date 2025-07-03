@@ -19,10 +19,18 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+
+# logs and temporary files
+*.log
+collection_log.txt
+openai_update_log.txt
+rss-simple-collection-report.json
+check_categories.sql
 
 # debug
 npm-debug.log*

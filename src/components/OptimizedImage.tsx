@@ -1,7 +1,8 @@
 'use client';
 
+import { useMemoizedFn } from 'ahooks';
 import Image from 'next/image';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface OptimizedImageProps {
   src: string;
@@ -76,7 +77,7 @@ export default function OptimizedImage({
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Generate optimized src
-  const getOptimizedSrc = useCallback(async (originalSrc: string): Promise<string> => {
+  const getOptimizedSrc = useMemoizedFn(async (originalSrc: string): Promise<string> => {
     try {
       // For external images or when optimization is not needed, return original
       if (originalSrc.startsWith('http') && !originalSrc.includes(window.location.hostname)) {
@@ -95,10 +96,10 @@ export default function OptimizedImage({
       console.warn('Image optimization failed:', error);
       return originalSrc;
     }
-  }, [width, quality]);
+  });
 
   // Handle image load
-  const handleLoad = useCallback(() => {
+  const handleLoad = useMemoizedFn(() => {
     setImageState(prev => ({
       ...prev,
       isLoading: false,
@@ -106,16 +107,16 @@ export default function OptimizedImage({
       hasError: false,
     }));
     onLoad?.();
-  }, [onLoad]);
+  });
 
   // Handle image error with retry logic
-  const handleError = useCallback(async () => {
+  const handleError = useMemoizedFn(async () => {
     if (retryOnError && imageState.retryCount < maxRetries) {
       console.warn(`Image load failed, retrying... (${imageState.retryCount + 1}/${maxRetries})`);
-      
+
       // Wait before retry
       await new Promise(resolve => setTimeout(resolve, 1000 * (imageState.retryCount + 1)));
-      
+
       setImageState(prev => ({
         ...prev,
         retryCount: prev.retryCount + 1,
@@ -130,7 +131,7 @@ export default function OptimizedImage({
       }));
       onError?.();
     }
-  }, [retryOnError, maxRetries, imageState.retryCount, onError]);
+  });
 
   // Setup intersection observer for lazy loading
   useEffect(() => {
@@ -173,8 +174,8 @@ export default function OptimizedImage({
   }, [src, getOptimizedSrc, imageState.isLoaded]);
 
   // Generate responsive sizes if not provided
-  const responsiveSizes = sizes || (responsive ? 
-    '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw' : 
+  const responsiveSizes = sizes || (responsive ?
+    '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw' :
     undefined
   );
 
@@ -192,7 +193,7 @@ export default function OptimizedImage({
   // Error fallback
   if (imageState.hasError) {
     return (
-      <div 
+      <div
         className={`bg-gray-200 flex items-center justify-center ${className}`}
         style={{ width, height, ...style }}
         ref={imageRef}
@@ -205,12 +206,12 @@ export default function OptimizedImage({
   return (
     <div ref={imageRef} className="relative">
       {imageState.isLoading && (
-        <div 
+        <div
           className="absolute inset-0 bg-gray-200 animate-pulse"
           style={{ width, height }}
         />
       )}
-      
+
       <Image
         src={imageState.currentSrc}
         alt={alt}
