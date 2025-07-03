@@ -452,6 +452,162 @@ export class ArticleService {
       orderBy
     });
   }
+
+  // 获取社区动态内容（社交媒体和播客）
+  static async getCommunityContent(page = 1, pageSize = 20, contentType?: string): Promise<PaginatedResult<Article>> {
+    try {
+      const offset = (page - 1) * pageSize;
+
+      // 从 pageConfig 动态获取社区页面应该显示的分类
+      const communityCategories = getPageFeedCategories('community');
+
+      // 如果指定了内容类型，进一步筛选
+      if (contentType && contentType !== '全部') {
+        // 直接使用用户选择的类型，不需要映射
+        const actualCategory = contentType;
+
+        // 并行查询总数和数据
+        const [countResult, dataResult] = await Promise.all([
+          supabase.from('articles')
+            .select('*', { count: 'exact', head: true })
+            .eq('source_type', 'rss')
+            .eq('category', actualCategory),
+          supabase.from('articles')
+            .select('*')
+            .eq('source_type', 'rss')
+            .eq('category', actualCategory)
+            .order('publish_time', { ascending: false })
+            .order('created_at', { ascending: false })
+            .range(offset, offset + pageSize - 1)
+        ]);
+
+        if (countResult.error) throw countResult.error;
+        if (dataResult.error) throw dataResult.error;
+
+        const total = countResult.count || 0;
+        return {
+          data: dataResult.data || [],
+          total,
+          hasMore: offset + pageSize < total,
+          page,
+          pageSize
+        };
+      } else {
+        // 查询所有社区分类
+        const [countResult, dataResult] = await Promise.all([
+          supabase.from('articles')
+            .select('*', { count: 'exact', head: true })
+            .eq('source_type', 'rss')
+            .in('category', communityCategories),
+          supabase.from('articles')
+            .select('*')
+            .eq('source_type', 'rss')
+            .in('category', communityCategories)
+            .order('publish_time', { ascending: false })
+            .order('created_at', { ascending: false })
+            .range(offset, offset + pageSize - 1)
+        ]);
+
+        if (countResult.error) throw countResult.error;
+        if (dataResult.error) throw dataResult.error;
+
+        const total = countResult.count || 0;
+        return {
+          data: dataResult.data || [],
+          total,
+          hasMore: offset + pageSize < total,
+          page,
+          pageSize
+        };
+      }
+    } catch (error) {
+      console.error('获取社区动态内容失败:', error);
+      // 返回空结果而不是抛出错误，避免页面崩溃
+      return {
+        data: [],
+        total: 0,
+        hasMore: false,
+        page,
+        pageSize
+      };
+    }
+  }
+
+  // 搜索社区动态内容
+  static async searchCommunityContent(
+    query: string,
+    page = 1,
+    pageSize = 20,
+    contentType?: string
+  ): Promise<PaginatedResult<Article>> {
+    const offset = (page - 1) * pageSize;
+    const communityCategories = getPageFeedCategories('community');
+    const searchPattern = `%${query}%`;
+
+    // 如果指定了内容类型，进一步筛选
+    if (contentType && contentType !== '全部') {
+      // 直接使用用户选择的类型，不需要映射
+      const actualCategory = contentType;
+
+      // 并行查询总数和数据
+      const [countResult, dataResult] = await Promise.all([
+        supabase.from('articles')
+          .select('*', { count: 'exact', head: true })
+          .eq('source_type', 'rss')
+          .eq('category', actualCategory)
+          .or(`title.ilike.${searchPattern},summary.ilike.${searchPattern},author.ilike.${searchPattern}`),
+        supabase.from('articles')
+          .select('*')
+          .eq('source_type', 'rss')
+          .eq('category', actualCategory)
+          .or(`title.ilike.${searchPattern},summary.ilike.${searchPattern},author.ilike.${searchPattern}`)
+          .order('publish_time', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1)
+      ]);
+
+      if (countResult.error) throw countResult.error;
+      if (dataResult.error) throw dataResult.error;
+
+      const total = countResult.count || 0;
+      return {
+        data: dataResult.data || [],
+        total,
+        hasMore: offset + pageSize < total,
+        page,
+        pageSize
+      };
+    } else {
+      // 搜索所有社区分类
+      const [countResult, dataResult] = await Promise.all([
+        supabase.from('articles')
+          .select('*', { count: 'exact', head: true })
+          .eq('source_type', 'rss')
+          .in('category', communityCategories)
+          .or(`title.ilike.${searchPattern},summary.ilike.${searchPattern},author.ilike.${searchPattern}`),
+        supabase.from('articles')
+          .select('*')
+          .eq('source_type', 'rss')
+          .in('category', communityCategories)
+          .or(`title.ilike.${searchPattern},summary.ilike.${searchPattern},author.ilike.${searchPattern}`)
+          .order('publish_time', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1)
+      ]);
+
+      if (countResult.error) throw countResult.error;
+      if (dataResult.error) throw dataResult.error;
+
+      const total = countResult.count || 0;
+      return {
+        data: dataResult.data || [],
+        total,
+        hasMore: offset + pageSize < total,
+        page,
+        pageSize
+      };
+    }
+  }
 }
 
 // 辅助函数
@@ -500,11 +656,11 @@ export class PageContentService {
         { id: 'design', name: '设计灵感', href: '/design', icon: '🎨' }
       ];
 
-      // 获取所有文章数据用于统计
+      // 获取所有文章数据用于统计（包含category字段）
       const { data: allArticles, error } = await supabase
         .from('articles')
-        .select('source_type');
-      
+        .select('source_type, category');
+
       if (error || !allArticles) {
         console.error('查询文章失败:', error?.message);
         return [];
@@ -513,10 +669,25 @@ export class PageContentService {
       // 并行计算每个页面的文章数量
       const pageStats = pages.map(page => {
         const sourceTypes = getPageSourceTypes(page.id);
-        const count = sourceTypes.length > 0 
-          ? allArticles.filter(article => sourceTypes.includes(article.source_type)).length
-          : 0;
-        
+        const feedCategories = getPageFeedCategories(page.id);
+
+        let count = 0;
+
+        if (sourceTypes.length > 0) {
+          if (page.id === 'community' && feedCategories.length > 0) {
+            // 社区动态：需要同时满足source_type和category条件
+            count = allArticles.filter(article =>
+              sourceTypes.includes(article.source_type) &&
+              feedCategories.includes(article.category)
+            ).length;
+          } else {
+            // 其他页面：只按source_type筛选
+            count = allArticles.filter(article =>
+              sourceTypes.includes(article.source_type)
+            ).length;
+          }
+        }
+
         return {
           ...page,
           count

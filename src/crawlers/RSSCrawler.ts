@@ -3,10 +3,10 @@ import { XMLParser } from 'fast-xml-parser';
 import got from 'got';
 import { BaseCrawler } from './BaseCrawler';
 import type {
-    CrawlerOptions,
-    CrawlerResult,
-    RSSFeed,
-    RSSItem
+  CrawlerOptions,
+  CrawlerResult,
+  RSSFeed,
+  RSSItem
 } from './types';
 
 interface ParsedRSSFeed {
@@ -218,11 +218,30 @@ export class RSSCrawler extends BaseCrawler {
   private extractCategories(category: any): string[] {
     if (!category) return [];
     
+    const extractStringValue = (item: any): string => {
+      if (typeof item === 'string') return item;
+      if (typeof item === 'object') {
+        // 处理XML对象，如 {@_term: "value", @_scheme: "scheme"}
+        if (item['@_term']) return item['@_term'];
+        if (item['#text']) return item['#text'];
+        if (item._ || item['_']) return item._ || item['_'];
+        // 如果是纯对象，尝试获取第一个值
+        const values = Object.values(item);
+        for (const value of values) {
+          if (typeof value === 'string' && value.trim()) return value;
+        }
+      }
+      return String(item || '');
+    };
+    
     if (Array.isArray(category)) {
-      return category.map(cat => cat?.['#text'] || cat || '').filter(Boolean);
+      return category
+        .map(cat => extractStringValue(cat))
+        .filter(val => val && val.trim().length > 0);
     }
     
-    return [category?.['#text'] || category || ''].filter(Boolean);
+    const extracted = extractStringValue(category);
+    return extracted && extracted.trim().length > 0 ? [extracted] : [];
   }
 
   private stripHtml(html: string): string {

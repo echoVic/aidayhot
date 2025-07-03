@@ -17,7 +17,9 @@
     "sync-rss-sources": "tsx scripts/syncRSSSourcesFromCrawler.ts",
     "migrate:check": "tsx scripts/migrateToCategoriesLess.ts check",
     "migrate:drop-categories": "tsx scripts/migrateToCategoriesLess.ts drop-table",
-    "migrate:cleanup": "tsx scripts/cleanupCategoriesMigration.ts --force"
+    "migrate:cleanup": "tsx scripts/cleanupCategoriesMigration.ts --force",
+    "cleanup-tags:check": "tsx scripts/cleanupTags.ts check",
+    "cleanup-tags:clean": "tsx scripts/cleanupTags.ts clean"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",

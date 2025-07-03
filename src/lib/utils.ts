@@ -37,8 +37,37 @@ export function formatDate(dateString: string): string {
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 1) return '1天前';
+    if (diffDays < 7) return `${diffDays}天前`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)}周前`;
+    if (diffDays < 365) return `${Math.ceil(diffDays / 30)}个月前`;
+    return `${Math.ceil(diffDays / 365)}年前`;
+  } catch {
+    return '未知';
+  }
+}
+
+/**
+ * 格式化相对时间显示（更精确的版本）
+ * 将日期转换为相对时间格式，支持分钟、小时等更精确的时间单位
+ * @param date 日期对象
+ * @returns 格式化后的相对时间字符串
+ * @example
+ * formatDistanceToNow(new Date()) // "刚刚"
+ * formatDistanceToNow(new Date(Date.now() - 60000)) // "1分钟前"
+ */
+export function formatDistanceToNow(date: Date): string {
+  try {
+    const now = new Date();
+    const diffTime = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffTime / (1000 * 60));
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return '刚刚';
+    if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
     if (diffDays < 7) return `${diffDays}天前`;
     if (diffDays < 30) return `${Math.ceil(diffDays / 7)}周前`;
     if (diffDays < 365) return `${Math.ceil(diffDays / 30)}个月前`;
