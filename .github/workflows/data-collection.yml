@@ -19,7 +19,6 @@ on:
           - arxiv
           - github
           - rss
-          - papers-with-code
           - stackoverflow
           - arxiv,github
           - arxiv,rss
@@ -83,7 +82,7 @@ jobs:
           
           if [ "$SOURCES_INPUT" = "all" ]; then
             # 拆分所有可用数据源
-            ALL_SOURCES=("arxiv" "github" "rss" "papers-with-code" "stackoverflow")
+            ALL_SOURCES=("arxiv" "github" "rss" "stackoverflow")
             SOURCES_JSON="["
             for i in "${!ALL_SOURCES[@]}"; do
               if [ $i -gt 0 ]; then
