@@ -32,9 +32,9 @@ on:
           - 'true'
           - 'false'
       max_results:
-        description: '统一最大结果数 (仅当关闭智能配置时使用)'
+        description: '统一最大结果数 (仅当关闭智能配置时使用，0表示不限制)'
         required: false
-        default: '50'
+        default: '0'
         type: string
       continue_on_error:
         description: '遇到错误时继续执行其他源'
@@ -195,7 +195,7 @@ jobs:
           # 构建命令参数
           CURRENT_SOURCE="${{ matrix.source }}"
           USE_SOURCE_CONFIG="${{ github.event.inputs.use_source_config || 'true' }}"
-          MAX_RESULTS="${{ github.event.inputs.max_results || '50' }}"
+          MAX_RESULTS="${{ github.event.inputs.max_results || '0' }}"
           HOURS_BACK="${{ github.event.inputs.hours_back || '12' }}"
           
           # 使用tsx直接运行TypeScript脚本
@@ -212,10 +212,14 @@ jobs:
           fi
           
           if [ "$USE_SOURCE_CONFIG" = "true" ]; then
-            echo "🎯 使用智能源配置"
+            echo "🎯 使用智能源配置 (无数量限制)"
           else
-            CMD="$CMD --max-results=$MAX_RESULTS"
-            echo "📊 使用统一配置: $MAX_RESULTS 条结果"
+            if [ "$MAX_RESULTS" != "0" ]; then
+              CMD="$CMD --max-results=$MAX_RESULTS"
+              echo "📊 使用统一配置: $MAX_RESULTS 条结果"
+            else
+              echo "📊 使用统一配置: 无数量限制"
+            fi
           fi
           
           echo "执行命令: $CMD"
