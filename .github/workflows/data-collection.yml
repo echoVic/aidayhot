@@ -117,7 +117,7 @@ jobs:
     needs: prepare
     # 动态选择 runner 类型
     runs-on: ${{ github.event.inputs.runner_type == 'self-hosted' && 'self-hosted' || 'ubuntu-22.04' }}
-    timeout-minutes: 20    # 单个数据源超时时间减少
+    timeout-minutes: 30    # 单个数据源超时时间 - RSS源较多需要更长时间
     
     # 动态 matrix 策略
     strategy:
@@ -202,7 +202,7 @@ jobs:
           # 使用tsx直接运行TypeScript脚本
           CMD="npx tsx scripts/collectDataToSupabase.ts"
           CMD="$CMD --sources=$CURRENT_SOURCE"
-          CMD="$CMD --timeout=20"
+          CMD="$CMD --timeout=1800"
           CMD="$CMD --verbose"
           CMD="$CMD --continue-on-error"
           
