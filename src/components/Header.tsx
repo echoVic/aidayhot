@@ -45,11 +45,11 @@ export default function Header({ onSearch }: HeaderProps) {
             <Link href="/tech" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
               技术动态
             </Link>
-            <Link href="/category/industry" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-              行业分析
-            </Link>
-            <Link href="/category/research" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+            <Link href="/research" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
               学术研究
+            </Link>
+            <Link href="/community" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+              社区动态
             </Link>
           </nav>
 

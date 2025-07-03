@@ -124,7 +124,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [searchQuery, selectedSourceTypes, selectedTechTags, sortBy]);
+  }, [searchQuery, selectedSourceTypes, selectedTechTags, sortBy, articles.length]);
 
   // 初始加载
   useEffect(() => {
@@ -144,6 +144,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
     };
     
     initializeData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 空依赖数组，只在组件挂载时执行一次
 
   // 筛选条件变化时重新加载
@@ -224,7 +225,7 @@ export default function TechContent({ searchQuery }: TechContentProps) {
         hasMore: pagination.hasMore
       });
     }
-  }, [loadTechArticles, loading, loadingMore, pagination.hasMore, pagination.page]);
+  }, [loading, loadingMore, pagination.hasMore, pagination.page, pagination.total, articles.length, loadTechArticles]);
 
   // 实时订阅技术动态变化 - 暂时禁用以修复分页问题
   useEffect(() => {

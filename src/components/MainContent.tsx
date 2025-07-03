@@ -223,29 +223,77 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
   }
 
   return (
-    <main className="flex-1 min-w-0 bg-gray-50 p-6">
-      {/* 工具栏 */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-          <div className="flex items-center space-x-4 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 truncate">
+    <main className="flex-1 bg-gray-50 p-4 sm:p-6">
+      {/* 页面标题和工具栏 */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-2 sm:space-y-0">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
               {category ? `${category} 相关文章` : searchQuery ? `搜索结果: "${searchQuery}"` : 'AI每日热点'}
-            </h2>
-            <span className="text-sm text-gray-500 whitespace-nowrap">
-              共 {pagination.total} 篇文章 {pagination.total > 0 && `(显示 ${sortedArticles.length} 篇)`}
+            </h1>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">
+              {searchQuery ? `为您找到相关内容` : '最新的AI资讯、技术动态和行业新闻'}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs sm:text-sm text-gray-500">
+              共 {pagination.total} 篇 {pagination.total > 0 && `(显示 ${sortedArticles.length} 篇)`}
             </span>
           </div>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+        </div>
+
+        {/* 调试信息 - 开发环境显示 */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-xs">
+            <strong>调试信息:</strong>
+            页面: {pagination.page} |
+            总数: {pagination.total} |
+            已显示: {sortedArticles.length} |
+            还有更多: {pagination.hasMore ? '是' : '否'} |
+            加载中: {loading ? '是' : '否'} |
+            加载更多中: {loadingMore ? '是' : '否'}
+          </div>
+        )}
+
+        {/* 筛选和控制工具栏 */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-4">
+          {/* 左侧：内容类型筛选 */}
+          <div className="flex flex-wrap gap-2">
+            <span className="text-sm font-medium text-gray-700 flex items-center">
+              内容类型:
+            </span>
+            <button className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
+              <span className="mr-1">📰</span>
+              全部内容
+            </button>
+          </div>
+
+          {/* 右侧：排序和视图控制 */}
+          <div className="flex items-center space-x-4">
+            {/* 排序选择 */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-gray-700">排序:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular' | 'trending')}
+                className="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="latest">🕒 最新发布</option>
+                <option value="popular">🔥 最受欢迎</option>
+                <option value="trending">📈 趋势热门</option>
+              </select>
+            </div>
+
             {/* 视图模式切换 */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <div className="flex items-center space-x-1 bg-gray-100 rounded-md p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-colors ${
+                className={`p-1.5 rounded text-sm transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
+                title="网格视图"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -253,30 +301,17 @@ export default function MainContent({ searchQuery, category }: MainContentProps)
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-colors ${
+                className={`p-1.5 rounded text-sm transition-colors ${
                   viewMode === 'list'
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
+                title="列表视图"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                 </svg>
               </button>
-            </div>
-
-            {/* 排序选择 */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">排序:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'latest' | 'popular' | 'trending')}
-                className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="latest">最新发布</option>
-                <option value="popular">热门文章</option>
-                <option value="trending">趋势热点</option>
-              </select>
             </div>
           </div>
         </div>
