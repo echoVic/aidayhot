@@ -12,7 +12,7 @@ export const PAGE_CONFIGS: Record<string, PageConfig> = {
   // 首页 - 综合资讯和RSS文章
   homepage: {
     sourceTypes: ['rss', 'openai'],
-    feedCategories: ['AI/机器学习', '新闻/资讯', 'RSS文章'],
+    feedCategories: ['AI/机器学习', '新闻/资讯', 'RSS文章', '其他'],
     title: '每日热点',
     description: '最新的AI资讯、技术动态和行业新闻'
   },
