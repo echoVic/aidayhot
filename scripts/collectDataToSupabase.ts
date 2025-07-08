@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import {
-  ArxivCrawler,
-  GitHubCrawler,
-  RSSCrawler,
-  StackOverflowCrawler
+    ArxivCrawler,
+    GitHubCrawler,
+    RSSCrawler,
+    StackOverflowCrawler
 } from '../src/crawlers';
 import { supabase } from './supabaseClient';
 
@@ -33,7 +33,7 @@ const SOURCE_CONFIGS: Record<string, SourceConfig> = {
   },
   'rss': { 
     maxResults: 60,        // 🚀 RSS源权重大幅提升 - 大量优质RSS源已验证可用
-    timeout: 15,
+    timeout: 8,            // 单个RSS源超时时间减少到8秒，提高整体效率
     priority: 'high',
     status: 'working',     // 使用got+fast-xml-parser已解决解析问题
     description: '📰 技术博客 - 丰富的技术观点和趋势 (高权重)'
@@ -163,6 +163,126 @@ function calculateTimeRange(hoursBack: number): { fromTime: Date; toTime: Date }
 }
 
 // 保存单篇文章到数据库的通用函数
+// 🚀 并发处理单个RSS源的辅助函数
+async function processSingleRSSFeed(
+  feedName: string,
+  feedInfo: { url: string; category: string },
+  crawler: any,
+  maxResults: number,
+  fromTime: Date | undefined,
+  toTime: Date,
+  canSaveToDatabase: boolean,
+  supabase: any,
+  source: string,
+  sourceStats: SourceStats,
+  stats: CollectionStats,
+  options: ParsedArgs,
+  totalFeeds: number
+): Promise<void> {
+  let feedResult;
+  let success = false;
+  let items: any[] = [];
+  let lastError = '';
+  
+  // 最多重试2次（减少重试次数以提高整体效率）
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      log(`[RSS] 源 ${feedName} 第${attempt}次采集...`, 'info');
+      feedResult = await crawler.crawl(feedInfo.url, { sourceId: feedName });
+      
+      if (feedResult.success && feedResult.data && feedResult.data.items) {
+        success = true;
+        items = feedResult.data.items;
+        if (attempt > 1) {
+          log(`[RSS] 源 ${feedName} 第${attempt}次尝试采集成功`, 'success');
+        }
+        break;
+      } else {
+        lastError = feedResult.error || '未知错误';
+        log(`[RSS] 源 ${feedName} 第${attempt}次采集失败: ${lastError}`, attempt < 2 ? 'warn' : 'error');
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : '未知错误';
+      log(`[RSS] 源 ${feedName} 第${attempt}次采集异常: ${lastError}`, attempt < 2 ? 'warn' : 'error');
+    }
+  }
+  
+  if (!success) {
+    log(`[RSS] 源 ${feedName} 连续2次采集失败，自动标记为无效（is_active=false）`, 'warn');
+    try {
+      if (supabase) {
+        await supabase.from('feed_sources').update({ is_active: false }).eq('name', feedName);
+      }
+    } catch (e) {
+      const errMsg = (typeof e === 'object' && e && 'message' in e) ? (e as any).message : String(e);
+      log(`[RSS] 标记无效源失败: ${feedName} - ${errMsg}`, 'error');
+    }
+    return;
+  }
+  
+  // 采集成功，自动恢复is_active=true
+  try {
+    if (supabase) {
+      await supabase.from('feed_sources').update({ is_active: true }).eq('name', feedName);
+      log(`[RSS] 源 ${feedName} 采集成功，自动恢复为活跃（is_active=true）`, 'info');
+    }
+  } catch (e) {
+    const errMsg = (typeof e === 'object' && e && 'message' in e) ? (e as any).message : String(e);
+    log(`[RSS] 恢复活跃源失败: ${feedName} - ${errMsg}`, 'error');
+  }
+  
+  // 处理获取的items
+  if (items.length > 0) {
+    let filteredItems = items.slice(0, Math.ceil(maxResults / totalFeeds));
+    
+    // 如果启用了时间过滤，过滤RSS条目
+    if (fromTime) {
+      filteredItems = filteredItems.filter((item: any) => {
+        if (!item.pubDate) return false; // 如果没有发布时间，跳过
+        const pubDate = new Date(item.pubDate);
+        return pubDate >= fromTime! && pubDate <= toTime;
+      });
+      log(`[RSS] 源 ${feedName}: 时间过滤后保留 ${filteredItems.length} 条RSS文章`, 'info');
+    }
+    
+    // 转换成统一的ArticleItem结构，使用feed_sources的category
+    const articleItems: ArticleItem[] = filteredItems.map((item: any) => ({
+      title: item.title,
+      url: item.link || item.url || '',
+      description: (item.description || item.content || '').substring(0, 500) + (((item.description || item.content || '').length > 500) ? '...' : ''),
+      author: item.author || feedName,
+      publishedDate: item.pubDate ? item.pubDate.toISOString() : new Date().toISOString(),
+      category: feedInfo.category, // 使用feed_sources表中的category
+      tags: item.categories || [],
+      source: 'rss'
+    }));
+
+    // 立即保存，不要放入results数组等批量保存
+    if (canSaveToDatabase && supabase && articleItems.length > 0) {
+      for (const articleItem of articleItems) {
+        try {
+          await saveArticleToDatabase(articleItem, source, sourceStats, stats, options);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          log(`[RSS] 保存文章异常 ${feedName}: ${errorMessage}`, 'error');
+          // 错误统计已在saveArticleToDatabase函数内处理，这里不重复计数
+        }
+      }
+      sourceStats.total += articleItems.length;
+      stats.crawlerSuccess += articleItems.length;
+    } else {
+      // 测试模式或无数据库连接
+      // results.push(...articleItems);  // 注释掉，避免并发访问results数组
+      sourceStats.total += articleItems.length;
+      stats.crawlerSuccess += articleItems.length;
+      log(`[RSS] 源 ${feedName} 测试模式 - 模拟保存 ${articleItems.length} 条文章`, 'info');
+    }
+    log(`[RSS] 源 ${feedName} 处理完成`, 'success');
+  } else {
+    log(`[RSS] 源 ${feedName} 采集成功但无有效内容`, 'warn');
+  }
+}
+
 async function saveArticleToDatabase(
   item: ArticleItem, 
   source: string, 
@@ -602,94 +722,65 @@ async function collectData(): Promise<void> {
               return acc;
             }, {} as Record<string, { url: string; category: string }>);
 
-            // 新主循环：每个源单独重试3次，成功即保存，失败则下线
-            for (const [feedName, feedInfo] of Object.entries(rssFeeds)) {
-              let feedResult;
-              let success = false;
-              let items: any[] = [];
-              let lastError = '';
-              for (let attempt = 1; attempt <= 3; attempt++) {
-                log(`[RSS] 源 ${feedName} 第${attempt}次采集...`, 'info');
-                feedResult = await crawler.crawl(feedInfo.url, { sourceId: feedName });
-                if (feedResult.success && feedResult.data && feedResult.data.items) {
-                  success = true;
-                  items = feedResult.data.items;
-                  if (attempt > 1) {
-                    log(`[RSS] 源 ${feedName} 第${attempt}次尝试采集成功`, 'success');
-                  }
-                  break;
-                } else {
-                  lastError = feedResult.error || '未知错误';
-                  log(`[RSS] 源 ${feedName} 第${attempt}次采集失败: ${lastError}`, attempt < 3 ? 'warn' : 'error');
+            // 🚀 新的并发处理逻辑：同时处理多个RSS源
+            const CONCURRENT_RSS_LIMIT = 8; // 同时处理8个RSS源
+            const feedEntries = Object.entries(rssFeeds);
+            const chunks = [];
+            
+            // 将RSS源分成多个批次
+            for (let i = 0; i < feedEntries.length; i += CONCURRENT_RSS_LIMIT) {
+              chunks.push(feedEntries.slice(i, i + CONCURRENT_RSS_LIMIT));
+            }
+            
+            log(`[RSS] 🚀 启用并发处理模式：${feedEntries.length} 个源分为 ${chunks.length} 批，每批最多 ${CONCURRENT_RSS_LIMIT} 个`, 'info');
+            
+            // 批次序号
+            let batchNum = 0;
+            
+            // 逐批并发处理RSS源
+            for (const chunk of chunks) {
+              batchNum++;
+              log(`[RSS] 📦 开始处理第 ${batchNum}/${chunks.length} 批 (${chunk.length} 个源)`, 'info');
+              
+              // 并发处理当前批次的所有RSS源
+              const batchPromises = chunk.map(async ([feedName, feedInfo]) => {
+                return await processSingleRSSFeed(
+                  feedName, 
+                  feedInfo, 
+                  crawler, 
+                  maxResults, 
+                  fromTime, 
+                  toTime, 
+                  canSaveToDatabase,
+                  supabase,
+                  source,
+                  sourceStats,
+                  stats,
+                  options,
+                  Object.keys(rssFeeds).length
+                );
+              });
+              
+              // 等待当前批次完成
+              const batchResults = await Promise.allSettled(batchPromises);
+              
+              // 统计批次结果
+              const batchSuccess = batchResults.filter(r => r.status === 'fulfilled').length;
+              const batchFailed = batchResults.filter(r => r.status === 'rejected').length;
+              
+              log(`[RSS] ✅ 第 ${batchNum} 批完成: ${batchSuccess} 成功, ${batchFailed} 失败`, 'info');
+              
+              // 记录失败的源
+              batchResults.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                  const [failedFeedName] = chunk[index];
+                  log(`[RSS] ❌ 源 ${failedFeedName} 处理失败: ${result.reason}`, 'error');
                 }
-              }
-              if (!success) {
-                log(`[RSS] 源 ${feedName} 连续3次采集失败，自动标记为无效（is_active=false）`, 'warn');
-                try {
-                  await supabase.from('feed_sources').update({ is_active: false }).eq('name', feedName);
-                } catch (e) {
-                  const errMsg = (typeof e === 'object' && e && 'message' in e) ? (e as any).message : String(e);
-                  log(`[RSS] 标记无效源失败: ${feedName} - ${errMsg}`, 'error');
-                }
-                continue;
-              } else {
-                // 采集成功，自动恢复is_active=true
-                try {
-                  await supabase.from('feed_sources').update({ is_active: true }).eq('name', feedName);
-                  log(`[RSS] 源 ${feedName} 采集成功，自动恢复为活跃（is_active=true）`, 'info');
-                } catch (e) {
-                  const errMsg = (typeof e === 'object' && e && 'message' in e) ? (e as any).message : String(e);
-                  log(`[RSS] 恢复活跃源失败: ${feedName} - ${errMsg}`, 'error');
-                }
-              }
-              // 保存items到results
-              if (items.length > 0) {
-                let filteredItems = items.slice(0, Math.ceil(maxResults / Object.keys(rssFeeds).length));
-                // 如果启用了时间过滤，过滤RSS条目
-                if (fromTime) {
-                  filteredItems = filteredItems.filter((item: any) => {
-                    if (!item.pubDate) return false; // 如果没有发布时间，跳过
-                    const pubDate = new Date(item.pubDate);
-                    return pubDate >= fromTime! && pubDate <= toTime;
-                  });
-                  log(`[RSS] 源 ${feedName}: 时间过滤后保留 ${filteredItems.length} 条RSS文章`, 'info');
-                }
-                
-                // 先转换成统一的ArticleItem结构，使用feed_sources的category
-                const articleItems: ArticleItem[] = filteredItems.map((item: any) => ({
-                  title: item.title,
-                  url: item.link || item.url || '',
-                  description: (item.description || item.content || '').substring(0, 500) + (((item.description || item.content || '').length > 500) ? '...' : ''),
-                  author: item.author || feedName,
-                  publishedDate: item.pubDate ? item.pubDate.toISOString() : new Date().toISOString(),
-                  category: feedInfo.category, // 使用feed_sources表中的category
-                  tags: item.categories || [],
-                  source: 'rss'
-                }));
-
-                // 立即保存，不要放入results数组等批量保存
-                if (canSaveToDatabase && supabase && articleItems.length > 0) {
-                  for (const articleItem of articleItems) {
-                    try {
-                      await saveArticleToDatabase(articleItem, source, sourceStats, stats, options);
-                    } catch (error) {
-                      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                      log(`[RSS] 保存文章异常 ${feedName}: ${errorMessage}`, 'error');
-                      // 错误统计已在saveArticleToDatabase函数内处理，这里不重复计数
-                    }
-                  }
-                  sourceStats.total += articleItems.length;
-                  stats.crawlerSuccess += articleItems.length;
-                } else {
-                  // 测试模式或无数据库连接
-                  results.push(...articleItems);
-                  sourceStats.total += articleItems.length;
-                  stats.crawlerSuccess += articleItems.length;
-                  log(`[RSS] 源 ${feedName} 测试模式 - 模拟保存 ${articleItems.length} 条文章`, 'info');
-                }
-                log(`[RSS] 源 ${feedName} 处理完成`, 'success');
-              } else {
-                log(`[RSS] 源 ${feedName} 采集成功但无有效内容`, 'warn');
+              });
+              
+              // 批次间短暂延迟，避免过载
+              if (batchNum < chunks.length) {
+                await new Promise(resolve => setTimeout(resolve, 200));
               }
             }
             
