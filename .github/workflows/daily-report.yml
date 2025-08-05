@@ -1,0 +1,54 @@
+name: Generate Daily AI Report
+
+on:
+  schedule:
+    # 每天北京时间 8:00 执行 (UTC 0:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Set environment variables
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
+        VOLCENGINE_ENDPOINT: ${{ secrets.VOLCENGINE_ENDPOINT }}
+        VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
+      run: echo "环境变量已设置"
+        
+    - name: Generate daily report
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
+        VOLCENGINE_ENDPOINT: ${{ secrets.VOLCENGINE_ENDPOINT }}
+        VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
+      run: npx tsx scripts/generateDailyReport.ts
+      
+    - name: Notify success
+      if: success()
+      run: |
+        echo "✅ AI日报生成成功！"
+        echo "时间: $(date)"
+        
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ AI日报生成失败！"
+        echo "时间: $(date)"
