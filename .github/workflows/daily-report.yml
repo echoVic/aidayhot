@@ -32,14 +32,16 @@ jobs:
         VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
       run: echo "环境变量已设置"
         
-    - name: Generate daily report
+    - name: Generate Daily Report
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
-        VOLCENGINE_ENDPOINT: ${{ secrets.VOLCENGINE_ENDPOINT }}
         VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
-      run: npx tsx scripts/generateDailyReport.ts
+      run: |
+        echo "🚀 开始生成AI日报..."
+        npx ts-node scripts/generateDailyReportSimplified.ts
       
     - name: Notify success
       if: success()

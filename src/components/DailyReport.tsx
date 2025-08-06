@@ -21,87 +21,85 @@ const ExternalLinkIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-interface ReportItem {
-  id: number;
-  title: string;
-  summary: string;
-  source_url: string;
-  source_name: string;
-  display_order: number;
+interface NewsItem {
+  title: string
+  url: string
+  summary: string
+  publishTime: string
+  aiSummary?: string
+  source: string
 }
 
-interface DailyReportData {
-  id: number;
-  report_date: string;
-  introduction: string;
-  created_at: string;
-  items: ReportItem[];
+interface DailyReportContent {
+  articles: NewsItem[]
+  metadata: {
+    totalArticles: number
+    generatedAt: string
+    sources: string[]
+  }
+}
+
+interface DailyReport {
+  id: string
+  date: string
+  content: DailyReportContent
+  summary: string
+  created_at: string
 }
 
 export default function DailyReport() {
-  const [currentReport, setCurrentReport] = useState<DailyReportData | null>(null);
+  const [currentReport, setCurrentReport] = useState<DailyReport | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 获取可用的日报日期列表
+  // 获取可用日期列表
   const fetchAvailableDates = async () => {
     try {
       const { data, error } = await supabase
         .from('daily_reports')
-        .select('report_date')
-        .order('report_date', { ascending: false });
+        .select('date')
+        .order('date', { ascending: false });
 
       if (error) throw error;
 
-      const dates = data?.map(item => item.report_date) || [];
+      const dates = data?.map(item => item.date) || [];
       setAvailableDates(dates);
       
-      // 默认选择最新的日期
-      if (dates.length > 0) {
+      // 设置默认选中最新日期
+      if (dates.length > 0 && !selectedDate) {
         setSelectedDate(dates[0]);
       }
-    } catch (err) {
-      console.error('获取日报日期失败:', err);
-      setError('无法获取日报列表');
+    } catch (error) {
+      console.error('获取日期列表失败:', error);
     }
   };
 
-  // 获取指定日期的日报内容
+  // 获取指定日期的日报数据
   const fetchDailyReport = async (date: string) => {
     if (!date) return;
-
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
-
-      // 获取日报主记录
       const { data: reportData, error: reportError } = await supabase
         .from('daily_reports')
         .select('*')
-        .eq('report_date', date)
+        .eq('date', date)
         .single();
 
       if (reportError) throw reportError;
+      if (!reportData) {
+        setError('未找到该日期的日报');
+        return;
+      }
 
-      // 获取日报条目
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('report_items')
-        .select('*')
-        .eq('daily_report_id', reportData.id)
-        .order('display_order', { ascending: true });
-
-      if (itemsError) throw itemsError;
-
-      setCurrentReport({
-        ...reportData,
-        items: itemsData || []
-      });
-
+      setCurrentReport(reportData);
     } catch (err) {
-      console.error('获取日报内容失败:', err);
-      setError('无法获取日报内容');
+      console.error('获取日报失败:', err);
+      setError('获取日报数据失败');
     } finally {
       setLoading(false);
     }
@@ -200,71 +198,82 @@ export default function DailyReport() {
       {/* 日报内容 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         {/* 日报头部 */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-            <ClockIcon className="h-4 w-4" />
-            <span>{formatDate(currentReport.report_date)}</span>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {new Date(currentReport.date).toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })} 日报
+            </h2>
+            <span className="text-sm text-gray-500">
+              共 {currentReport.content.metadata.totalArticles} 篇文章
+            </span>
           </div>
-          
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">今日导读</h2>
-          
-          <div className="prose prose-gray max-w-none">
-            <p className="text-gray-700 leading-relaxed">
-              {currentReport.introduction || '今日AI领域有多项重要进展，涵盖学术研究、开源项目和行业动态。'}
-            </p>
+
+          {/* 日报总结 */}
+          <div className="mb-8 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+            <h3 className="text-lg font-semibold text-blue-800 mb-2">📊 今日总结</h3>
+            <p className="text-gray-700 leading-relaxed">{currentReport.summary}</p>
           </div>
-        </div>
-
-        {/* 新闻条目列表 */}
-        <div className="divide-y divide-gray-200">
-          {currentReport.items.map((item, index) => (
-            <div key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-start gap-4">
-                {/* 序号和来源图标 */}
-                <div className="flex-shrink-0 flex flex-col items-center">
-                  <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                    {index + 1}
+          <div className="space-y-6">
+            {currentReport.content.articles.map((article: NewsItem, index: number) => (
+              <div key={index} className="p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-blue-600">{index + 1}</span>
                   </div>
-                  <div className="mt-2 text-lg">
-                    {getSourceIcon(item.source_name)}
-                  </div>
-                </div>
-
-                {/* 内容 */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2 leading-tight">
-                    {item.title}
-                  </h3>
                   
-                  <p className="text-gray-600 mb-3 leading-relaxed">
-                    {item.summary}
-                  </p>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {item.source_name}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                      {article.title}
+                    </h3>
                     
-                    <a
-                      href={item.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      <span>查看原文</span>
-                      <ExternalLinkIcon className="h-4 w-4" />
-                    </a>
+                    <div className="space-y-3">
+                      {article.aiSummary && (
+                        <div className="text-sm text-gray-700 bg-green-50 p-3 rounded-lg border-l-4 border-green-400">
+                          <span className="font-medium text-green-800">AI摘要：</span>
+                          <p className="mt-1">{article.aiSummary}</p>
+                        </div>
+                      )}
+                      
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">原始摘要：</span>
+                        <p className="mt-1">{article.summary}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <ClockIcon className="h-4 w-4" />
+                        {new Date(article.publishTime).toLocaleString('zh-CN')}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        {article.source}
+                      </span>
+                      <a 
+                        href={article.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                      >
+                        查看原文
+                        <ExternalLinkIcon className="h-4 w-4" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* 底部信息 */}
         <div className="p-6 bg-gray-50 border-t border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-500">
-            <span>共 {currentReport.items.length} 条资讯</span>
+            <span>共 {currentReport.content.articles.length} 条资讯</span>
             <span>由 AI 自动生成和整理</span>
           </div>
         </div>
