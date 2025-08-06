@@ -305,6 +305,9 @@ class GitHubDailyReportGenerator {
   }
 }
 
+// 导出类供其他脚本使用
+export { GitHubDailyReportGenerator };
+
 // 主执行函数
 async function main() {
   console.log('🚀 GitHub Actions AI日报生成器启动...');
