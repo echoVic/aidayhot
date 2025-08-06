@@ -30,7 +30,7 @@ export class VolcengineAI {
   constructor(config: VolcengineConfig) {
     this.apiKey = config.apiKey;
     this.endpoint = config.endpoint || 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
-    this.model = config.model || 'ep-20241230140207-8xhzc'; // 默认模型，可根据实际情况调整
+    this.model = config.model || 'ep-20250806144921-5qqcz'; // 默认模型，可根据实际情况调整
   }
 
   /**

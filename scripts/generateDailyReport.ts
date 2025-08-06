@@ -43,6 +43,44 @@ console.log('✅ Supabase 环境变量已加载');
 // 初始化 Supabase 客户端
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// 从环境变量读取配置参数
+const HOURS_BACK = parseInt(process.env.HOURS_BACK || '24');
+const MAX_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_ARTICLES_PER_SOURCE || '3');
+const MAX_RSS_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_RSS_ARTICLES_PER_SOURCE || '3'); // RSS源默认3篇
+const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES || 'all';
+
+console.log(`⚙️ 配置参数:`);
+console.log(`   ⏰ 时间范围: 过去 ${HOURS_BACK} 小时`);
+console.log(`   📊 GitHub/ArXiv每源文章数: ${MAX_ARTICLES_PER_SOURCE}`);
+console.log(`   📰 RSS每源文章数: ${MAX_RSS_ARTICLES_PER_SOURCE}`);
+console.log(`   🎯 数据源类型: ${INCLUDE_SOURCES}`);
+
+// 时间过滤工具函数
+function isWithinTimeRange(publishTime: string, hoursBack: number): boolean {
+  if (hoursBack <= 0) return true; // 0表示不使用时间过滤
+  
+  const now = new Date();
+  const publishDate = new Date(publishTime);
+  const timeDiffHours = (now.getTime() - publishDate.getTime()) / (1000 * 60 * 60);
+  
+  return timeDiffHours <= hoursBack;
+}
+
+// 数据源过滤工具函数
+function shouldIncludeSource(category: string, includeType: string): boolean {
+  switch (includeType) {
+    case 'ai-research':
+      return category === 'AI/机器学习';
+    case 'tech-development':
+      return category === '技术/开发';
+    case 'arxiv-github-only':
+      return false; // RSS源不包含在此选项中
+    case 'all':
+    default:
+      return true;
+  }
+}
+
 interface ArticleData {
   title: string;
   summary: string;
@@ -78,69 +116,158 @@ class GitHubDailyReportGenerator {
 
     try {
       // 1. 抓取 ArXiv 论文
-      console.log('📚 抓取 ArXiv 论文...');
-      const arxivResult = await this.arxivCrawler.crawl('cs.AI+OR+cs.LG+OR+cs.CL', 0, 5, 'submittedDate', 'descending');
-      if (arxivResult.success && arxivResult.papers) {
-        arxivResult.papers.forEach((paper: any) => {
-          articles.push({
-            title: paper.title,
-            original_summary: paper.summary?.substring(0, 200) + '...', // 保留原始摘要
-            summary: paper.summary?.substring(0, 200) + '...', // 初始值，后面会被AI替换
-            source_url: paper.abstractUrl || paper.pdfUrl || 'https://arxiv.org',
-            source_name: 'ArXiv',
-            publish_time: paper.publishedDate || new Date().toISOString()
+      if (INCLUDE_SOURCES === 'all' || INCLUDE_SOURCES === 'arxiv-github-only') {
+        console.log('📚 抓取 ArXiv 论文...');
+        const arxivResult = await this.arxivCrawler.crawl('cs.AI+OR+cs.LG+OR+cs.CL', 0, Math.max(MAX_ARTICLES_PER_SOURCE * 2, 10), 'submittedDate', 'descending');
+        if (arxivResult.success && arxivResult.papers) {
+          let addedCount = 0;
+          const maxArxivArticles = Math.min(MAX_ARTICLES_PER_SOURCE, 2); // ArXiv最多2篇
+          arxivResult.papers.forEach((paper: any) => {
+            const publishTime = paper.publishedDate || new Date().toISOString();
+            if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < maxArxivArticles) {
+              articles.push({
+                title: paper.title,
+                original_summary: paper.summary?.substring(0, 200) + '...', // 保留原始摘要
+                summary: paper.summary?.substring(0, 200) + '...', // 初始值，后面会被AI替换
+                source_url: paper.abstractUrl || paper.pdfUrl || 'https://arxiv.org',
+                source_name: 'ArXiv',
+                publish_time: publishTime
+              });
+              addedCount++;
+            }
           });
-        });
+        }
+        console.log(`✅ ArXiv: 获取 ${articles.filter(a => a.source_name === 'ArXiv').length} 篇论文（过去${HOURS_BACK}小时内）`);
       }
-      console.log(`✅ ArXiv: 获取 ${arxivResult.papers?.length || 0} 篇论文`);
 
       // 2. 抓取 GitHub 项目
-      console.log('🐙 抓取 GitHub 项目...');
-      const githubResult = await this.githubCrawler.crawl(
-        'artificial-intelligence+machine-learning',
-        'updated',
-        'desc',
-        5
-      );
-      if (githubResult.success && githubResult.repositories) {
-        githubResult.repositories.slice(0, 5).forEach((repo: any) => {
-          articles.push({
-            title: repo.name,
-            original_summary: repo.description || '暂无描述', // 保留原始摘要
-            summary: repo.description || '暂无描述', // 初始值，后面会被AI替换
-            source_url: repo.html_url || repo.url || `https://github.com/${repo.full_name}` || 'https://github.com',
-            source_name: 'GitHub',
-            publish_time: repo.updated_at || new Date().toISOString()
+      if (INCLUDE_SOURCES === 'all' || INCLUDE_SOURCES === 'arxiv-github-only') {
+        console.log('🐙 抓取 GitHub 项目...');
+        const githubResult = await this.githubCrawler.crawl(
+          'artificial-intelligence+machine-learning',
+          'updated',
+          'desc',
+          Math.max(MAX_ARTICLES_PER_SOURCE * 2, 10)
+        );
+        if (githubResult.success && githubResult.repositories) {
+          let addedCount = 0;
+          const maxGithubProjects = Math.min(MAX_ARTICLES_PER_SOURCE, 2); // GitHub最多2个项目
+          githubResult.repositories.forEach((repo: any) => {
+            const publishTime = repo.updated_at || new Date().toISOString();
+            if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < maxGithubProjects) {
+              articles.push({
+                title: repo.name,
+                original_summary: repo.description || '暂无描述', // 保留原始摘要
+                summary: repo.description || '暂无描述', // 初始值，后面会被AI替换
+                source_url: repo.html_url || repo.url || `https://github.com/${repo.full_name}` || 'https://github.com',
+                source_name: 'GitHub',
+                publish_time: publishTime
+              });
+              addedCount++;
+            }
           });
-        });
+        }
+        console.log(`✅ GitHub: 获取 ${articles.filter(a => a.source_name === 'GitHub').length} 个项目（过去${HOURS_BACK}小时内）`);
       }
-      console.log(`✅ GitHub: 获取 ${Math.min(githubResult.repositories?.length || 0, 5)} 个项目`);
 
       // 3. 抓取 RSS 资讯
       console.log('📰 抓取 RSS 资讯...');
-      const rssFeeds = [
-        'https://deepmind.com/blog/feed/basic/',
-        'https://aws.amazon.com/blogs/amazon-ai/feed/',
-        'https://techcrunch.com/feed/'
+      const recommendedSources = [
+        {
+          name: 'Anthropic News',
+          url: 'https://rsshub.app/anthropic/news',
+          category: 'AI/机器学习'
+        },
+        {
+          name: 'Google AI Blog',
+          url: 'https://blog.google/technology/ai/rss/',
+          category: 'AI/机器学习'
+        },
+        {
+          name: 'OpenAI News',
+          url: 'https://openai.com/news/rss.xml',
+          category: 'AI/机器学习'
+        },
+        {
+          name: 'Berkeley AI Research',
+          url: 'https://bair.berkeley.edu/blog/feed.xml',
+          category: 'AI/机器学习'
+        },
+        {
+          name: 'Google DeepMind Blog',
+          url: 'https://deepmind.com/blog/feed/basic/',
+          category: 'AI/机器学习'
+        },
+        {
+          name: '量子位',
+          url: 'https://www.qbitai.com/feed',
+          category: 'AI/机器学习'
+        },
+        {
+          name: 'AWS Machine Learning Blog',
+          url: 'https://aws.amazon.com/blogs/amazon-ai/feed/',
+          category: '技术/开发'
+        },
+        {
+          name: 'Engineering at Meta',
+          url: 'https://engineering.fb.com/feed/',
+          category: '技术/开发'
+        },
+        {
+          name: 'Google Developers Blog',
+          url: 'https://developers.googleblog.com/feeds/posts/default',
+          category: '技术/开发'
+        },
+        {
+          name: 'Microsoft Azure Blog',
+          url: 'https://azure.microsoft.com/en-us/blog/feed/',
+          category: '技术/开发'
+        },
+        {
+          name: 'Hugging Face Blog',
+          url: 'https://huggingface.co/blog/feed.xml',
+          category: 'AI/机器学习'
+        },
+        {
+          name: 'Apple Machine Learning Research',
+          url: 'https://machinelearning.apple.com/rss.xml',
+          category: 'AI/机器学习'
+        }
       ];
 
-      for (const feedUrl of rssFeeds) {
+      // 过滤数据源
+      const filteredSources = recommendedSources.filter(source => 
+        shouldIncludeSource(source.category, INCLUDE_SOURCES)
+      );
+      
+      console.log(`📊 将抓取 ${filteredSources.length} 个RSS源（共 ${recommendedSources.length} 个可用）`);
+      
+      for (const source of filteredSources) {
         try {
-          const rssResult = await this.rssCrawler.crawl(feedUrl);
+          console.log(`📡 正在抓取: ${source.name} (${source.category})`);
+          const rssResult = await this.rssCrawler.crawl(source.url);
           if (rssResult.success && rssResult.data?.items) {
-            rssResult.data.items.slice(0, 6).forEach((item: any) => {
-              articles.push({
-                title: item.title || '无标题',
-                original_summary: item.description?.substring(0, 200) + '...' || '暂无摘要', // 保留原始摘要
-                summary: item.description?.substring(0, 200) + '...' || '暂无摘要', // 初始值，后面会被AI替换
-                source_url: item.link || item.url || feedUrl,
-                source_name: rssResult.data?.title || 'RSS',
-                publish_time: item.pubDate || new Date().toISOString()
-              });
+            let addedCount = 0;
+            rssResult.data.items.forEach((item: any) => {
+              const publishTime = item.pubDate || new Date().toISOString();
+              if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < MAX_RSS_ARTICLES_PER_SOURCE) {
+                articles.push({
+                  title: item.title || '无标题',
+                  original_summary: item.description?.substring(0, 200) + '...' || '暂无摘要', // 保留原始摘要
+                  summary: item.description?.substring(0, 200) + '...' || '暂无摘要', // 初始值，后面会被AI替换
+                  source_url: item.link || item.url || source.url,
+                  source_name: source.name,
+                  publish_time: publishTime
+                });
+                addedCount++;
+              }
             });
+            console.log(`✅ ${source.name}: 获取 ${addedCount} 篇文章（过去${HOURS_BACK}小时内）`);
+          } else {
+            console.log(`⚠️ ${source.name}: 未获取到有效内容`);
           }
         } catch (error) {
-          console.log(`⚠️ RSS源 ${feedUrl} 抓取失败:`, error);
+          console.log(`❌ ${source.name} 抓取失败:`, error);
         }
       }
 

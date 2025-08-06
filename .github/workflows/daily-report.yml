@@ -5,6 +5,32 @@ on:
     # 每天北京时间 8:00 执行 (UTC 0:00)
     - cron: '0 0 * * *'
   workflow_dispatch: # 允许手动触发
+    inputs:
+      hours_back:
+        description: '收集前N小时的资讯数据 (0表示不使用时间过滤)'
+        required: false
+        default: '24'
+        type: number
+      max_articles_per_source:
+        description: 'GitHub/ArXiv每源最大文章数'
+        required: false
+        default: '3'
+        type: number
+      max_rss_articles_per_source:
+        description: 'RSS源每源最大文章数'
+        required: false
+        default: '3'
+        type: number
+      include_sources:
+        description: '包含的数据源类型'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ai-research
+          - tech-development
+          - arxiv-github-only
 
 jobs:
   generate-report:
@@ -39,8 +65,16 @@ jobs:
         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
         VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
+        HOURS_BACK: ${{ github.event.inputs.hours_back || '24' }}
+        MAX_ARTICLES_PER_SOURCE: ${{ github.event.inputs.max_articles_per_source || '3' }}
+        MAX_RSS_ARTICLES_PER_SOURCE: ${{ github.event.inputs.max_rss_articles_per_source || '3' }}
+        INCLUDE_SOURCES: ${{ github.event.inputs.include_sources || 'all' }}
       run: |
         echo "🚀 开始生成AI日报..."
+        echo "⏰ 时间范围: 过去 $HOURS_BACK 小时"
+        echo "📊 GitHub/ArXiv每源文章数: $MAX_ARTICLES_PER_SOURCE"
+        echo "📰 RSS每源文章数: $MAX_RSS_ARTICLES_PER_SOURCE"
+        echo "🎯 数据源类型: $INCLUDE_SOURCES"
         npx tsx scripts/generateDailyReport.ts
       
     - name: Notify success
