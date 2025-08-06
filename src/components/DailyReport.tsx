@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import ReactMarkdown from 'react-markdown';
 // 使用简单的图标组件替代 Heroicons
 const CalendarIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -215,7 +216,9 @@ export default function DailyReport() {
           {/* 日报总结 */}
           <div className="mb-8 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
             <h3 className="text-lg font-semibold text-blue-800 mb-2">📊 今日总结</h3>
-            <p className="text-gray-700 leading-relaxed">{currentReport.summary}</p>
+            <div className="text-gray-700 leading-relaxed prose prose-sm max-w-none">
+              <ReactMarkdown>{currentReport.summary}</ReactMarkdown>
+            </div>
           </div>
           <div className="space-y-6">
             {currentReport.content.articles.map((article: NewsItem, index: number) => (
@@ -234,14 +237,11 @@ export default function DailyReport() {
                       {article.aiSummary && (
                         <div className="text-sm text-gray-700 bg-green-50 p-3 rounded-lg border-l-4 border-green-400">
                           <span className="font-medium text-green-800">AI摘要：</span>
-                          <p className="mt-1">{article.aiSummary}</p>
+                          <div className="mt-1 prose prose-sm max-w-none">
+                            <ReactMarkdown>{article.aiSummary}</ReactMarkdown>
+                          </div>
                         </div>
                       )}
-                      
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">原始摘要：</span>
-                        <p className="mt-1">{article.summary}</p>
-                      </div>
                     </div>
                     
                     <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
