@@ -221,6 +221,56 @@ export default function DailyReport() {
             </div>
           </div>
           
+          {/* 文章列表 */}
+          <div className="space-y-4 mt-8">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">📰 今日资讯</h3>
+            {currentReport.content.articles.map((article: NewsItem, index: number) => (
+              <div key={index} className="p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-medium text-blue-600">{index + 1}</span>
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-base font-medium text-gray-900 mb-2 line-clamp-2">
+                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
+                        {article.title}
+                      </a>
+                    </h4>
+                    
+                    {article.aiSummary && (
+                      <div className="text-sm text-gray-700 mb-3">
+                        <div className="prose prose-sm max-w-none">
+                          <ReactMarkdown>{article.aiSummary}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <ClockIcon className="h-3 w-3" />
+                        {new Date(article.publishTime).toLocaleString('zh-CN')}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        {article.source}
+                      </span>
+                      <a 
+                        href={article.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                      >
+                        查看原文
+                        <ExternalLinkIcon className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
           {/* 数据来源信息 */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h4 className="text-sm font-medium text-gray-700 mb-2">📊 数据来源</h4>

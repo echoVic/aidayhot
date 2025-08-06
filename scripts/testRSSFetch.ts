@@ -1,6 +1,3 @@
-import { supabase } from './supabaseClient';
-import fetch from 'node-fetch';
-import { parseString } from 'xml2js';
 
 interface RSSItem {
   title: string;
@@ -24,6 +21,7 @@ async function fetchRSS(url: string): Promise<RSSFeed> {
         'User-Agent': 'Mozilla/5.0 (compatible; RSSBot/1.0)',
         'Accept': 'application/rss+xml, application/xml, text/xml, */*'
       },
+      // @ts-ignore
       timeout: 10000
     });
 
@@ -33,47 +31,54 @@ async function fetchRSS(url: string): Promise<RSSFeed> {
 
     const xmlText = await response.text();
     
-    return new Promise((resolve, reject) => {
-      parseString(xmlText, (err, result) => {
-        if (err) {
-          reject(new Error(`XML解析失败: ${err.message}`));
-          return;
-        }
-
-        try {
-          const channel = result.rss?.channel?.[0] || result.feed;
-          const title = channel?.title?.[0] || channel?.title?.[0]?._ || '未知标题';
+    // 简单的XML解析
+    const titleMatch = xmlText.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1] : '未知标题';
+    
+    // 提取RSS项目
+    const itemMatches = xmlText.match(/<item[^>]*>([\s\S]*?)<\/item>/gi);
+    const items: RSSItem[] = [];
+    
+    if (itemMatches) {
+      for (const itemMatch of itemMatches.slice(0, 5)) {
+        const titleMatch = itemMatch.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const linkMatch = itemMatch.match(/<link[^>]*>([^<]+)<\/link>/i);
+        const pubDateMatch = itemMatch.match(/<pubDate[^>]*>([^<]+)<\/pubDate>/i);
+        const descMatch = itemMatch.match(/<description[^>]*>([^<]+)<\/description>/i);
+        
+        items.push({
+          title: titleMatch ? titleMatch[1] : '无标题',
+          link: linkMatch ? linkMatch[1] : '',
+          pubDate: pubDateMatch ? pubDateMatch[1] : undefined,
+          description: descMatch ? descMatch[1] : undefined
+        });
+      }
+    }
+    
+    // 如果没有找到RSS项目，尝试Atom格式
+    if (items.length === 0) {
+      const entryMatches = xmlText.match(/<entry[^>]*>([\s\S]*?)<\/entry>/gi);
+      if (entryMatches) {
+        for (const entryMatch of entryMatches.slice(0, 5)) {
+          const titleMatch = entryMatch.match(/<title[^>]*>([^<]+)<\/title>/i);
+          const linkMatch = entryMatch.match(/<link[^>]*href="([^"]+)"/i);
+          const pubDateMatch = entryMatch.match(/<published[^>]*>([^<]+)<\/published>/i);
+          const summaryMatch = entryMatch.match(/<summary[^>]*>([^<]+)<\/summary>/i);
           
-          let items: RSSItem[] = [];
-          
-          // 处理RSS格式
-          if (result.rss?.channel?.[0]?.item) {
-            items = result.rss.channel[0].item.map((item: any) => ({
-              title: item.title?.[0] || '无标题',
-              link: item.link?.[0] || '',
-              pubDate: item.pubDate?.[0],
-              description: item.description?.[0]
-            }));
-          }
-          // 处理Atom格式
-          else if (result.feed?.entry) {
-            items = result.feed.entry.map((entry: any) => ({
-              title: entry.title?.[0] || entry.title?.[0]?._ || '无标题',
-              link: entry.link?.[0]?.$.href || entry.link?.[0] || '',
-              pubDate: entry.published?.[0] || entry.updated?.[0],
-              description: entry.summary?.[0] || entry.content?.[0]
-            }));
-          }
-
-          resolve({
-            title,
-            items: items.slice(0, 5) // 只取前5篇文章
+          items.push({
+            title: titleMatch ? titleMatch[1] : '无标题',
+            link: linkMatch ? linkMatch[1] : '',
+            pubDate: pubDateMatch ? pubDateMatch[1] : undefined,
+            description: summaryMatch ? summaryMatch[1] : undefined
           });
-        } catch (parseErr) {
-          reject(new Error(`解析RSS内容失败: ${parseErr}`));
         }
-      });
-    });
+      }
+    }
+
+    return {
+      title,
+      items
+    };
   } catch (error) {
     return {
       title: '抓取失败',
@@ -190,7 +195,7 @@ async function testRecommendedSources() {
 
   // 总结结果
   console.log('\n📊 测试结果总结:');
-  console.log('=' * 50);
+  console.log('='.repeat(50));
   
   const successful = results.filter(r => r.success);
   const failed = results.filter(r => !r.success);
