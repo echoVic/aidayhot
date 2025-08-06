@@ -41,7 +41,7 @@ jobs:
         VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
       run: |
         echo "🚀 开始生成AI日报..."
-        npx ts-node scripts/generateDailyReportSimplified.ts
+        npx tsx scripts/generateDailyReport.ts
       
     - name: Notify success
       if: success()
