@@ -209,7 +209,7 @@ export default function DailyReport() {
               })} 日报
             </h2>
             <span className="text-sm text-gray-500">
-              共 {currentReport.content.metadata.totalArticles} 篇文章
+              基于 {currentReport.content.metadata.totalArticles} 篇文章生成
             </span>
           </div>
 
@@ -220,60 +220,24 @@ export default function DailyReport() {
               <ReactMarkdown>{currentReport.summary}</ReactMarkdown>
             </div>
           </div>
-          <div className="space-y-6">
-            {currentReport.content.articles.map((article: NewsItem, index: number) => (
-              <div key={index} className="p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-blue-600">{index + 1}</span>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {article.title}
-                    </h3>
-                    
-                    <div className="space-y-3">
-                      {article.aiSummary && (
-                        <div className="text-sm text-gray-700 bg-green-50 p-3 rounded-lg border-l-4 border-green-400">
-                          <span className="font-medium text-green-800">AI摘要：</span>
-                          <div className="mt-1 prose prose-sm max-w-none">
-                            <ReactMarkdown>{article.aiSummary}</ReactMarkdown>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <ClockIcon className="h-4 w-4" />
-                        {new Date(article.publishTime).toLocaleString('zh-CN')}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                        {article.source}
-                      </span>
-                      <a 
-                        href={article.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                      >
-                        查看原文
-                        <ExternalLinkIcon className="h-4 w-4" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          
+          {/* 数据来源信息 */}
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">📊 数据来源</h4>
+            <div className="flex flex-wrap gap-2">
+              {currentReport.content.metadata.sources.map((source, index) => (
+                <span key={index} className="px-2 py-1 bg-white rounded text-xs text-gray-600 border">
+                  {source}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* 底部信息 */}
         <div className="p-6 bg-gray-50 border-t border-gray-200">
           <div className="flex items-center justify-between text-sm text-gray-500">
-            <span>共 {currentReport.content.articles.length} 条资讯</span>
+            <span>基于 {currentReport.content.articles.length} 条资讯生成</span>
             <span>由 AI 自动生成和整理</span>
           </div>
         </div>
