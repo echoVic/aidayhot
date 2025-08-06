@@ -22,6 +22,18 @@ const ExternalLinkIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const ChevronDownIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+);
+
+const ChevronRightIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);
+
 interface NewsItem {
   title: string
   url: string
@@ -54,6 +66,13 @@ export default function DailyReport() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 日报内容折叠状态管理（默认展开）
+  const [isReportExpanded, setIsReportExpanded] = useState(true);
+  
+  // 切换日报内容展开/折叠状态
+  const toggleReportExpansion = () => {
+    setIsReportExpanded(!isReportExpanded);
+  };
 
   // 获取可用日期列表
   const fetchAvailableDates = async () => {
@@ -199,31 +218,51 @@ export default function DailyReport() {
       {/* 日报内容 */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         {/* 日报头部 */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">
-              {new Date(currentReport.date).toLocaleDateString('zh-CN', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })} 日报
-            </h2>
-            <span className="text-sm text-gray-500">
-              基于 {currentReport.content.metadata.totalArticles} 篇文章生成
-            </span>
-          </div>
-
-          {/* 日报总结 */}
-          <div className="mb-8 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-            <h3 className="text-lg font-semibold text-blue-800 mb-2">📊 今日总结</h3>
-            <div className="text-gray-700 leading-relaxed prose prose-sm max-w-none">
-              <ReactMarkdown>{currentReport.summary}</ReactMarkdown>
+        <div className="bg-white rounded-lg shadow-lg">
+          {/* 可点击的标题栏 */}
+          <div 
+            className="p-6 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+            onClick={toggleReportExpansion}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {new Date(currentReport.date).toLocaleDateString('zh-CN', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })} 日报
+                </h2>
+                <span className="text-sm text-gray-500">
+                  基于 {currentReport.content.metadata.totalArticles} 篇文章生成
+                </span>
+              </div>
+              
+              {/* 折叠/展开按钮 */}
+              <div className="flex-shrink-0">
+                {isReportExpanded ? (
+                  <ChevronDownIcon className="h-6 w-6 text-gray-400" />
+                ) : (
+                  <ChevronRightIcon className="h-6 w-6 text-gray-400" />
+                )}
+              </div>
             </div>
           </div>
-          
-          {/* 文章列表 */}
-          <div className="space-y-4 mt-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">📰 今日资讯</h3>
+
+          {/* 可折叠的日报内容 */}
+          {isReportExpanded && (
+            <div className="border-t border-gray-100">
+              {/* 日报总结 */}
+              <div className="m-6 mb-8 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">📊 今日总结</h3>
+                <div className="text-gray-700 leading-relaxed prose prose-sm max-w-none">
+                  <ReactMarkdown>{currentReport.summary}</ReactMarkdown>
+                </div>
+              </div>
+              
+              {/* 文章列表 */}
+              <div className="space-y-4 mx-6 mt-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">📰 今日资讯</h3>
             {currentReport.content.articles.map((article: NewsItem, index: number) => (
               <div key={index} className="p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3">
@@ -269,19 +308,21 @@ export default function DailyReport() {
                 </div>
               </div>
             ))}
-          </div>
-          
-          {/* 数据来源信息 */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">📊 数据来源</h4>
-            <div className="flex flex-wrap gap-2">
-              {currentReport.content.metadata.sources.map((source, index) => (
-                <span key={index} className="px-2 py-1 bg-white rounded text-xs text-gray-600 border">
-                  {source}
-                </span>
-              ))}
+              </div>
+              
+              {/* 数据来源信息 */}
+              <div className="mx-6 mt-6 mb-6 p-4 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">📊 数据来源</h4>
+                <div className="flex flex-wrap gap-2">
+                  {currentReport.content.metadata.sources.map((source, index) => (
+                    <span key={index} className="px-2 py-1 bg-white rounded text-xs text-gray-600 border">
+                      {source}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* 底部信息 */}
