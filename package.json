@@ -24,6 +24,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
     "@types/react-infinite-scroll-component": "^5.0.0",
+    "@types/react-window": "^1.8.8",
     "@vercel/analytics": "^1.5.0",
     "ahooks": "^3.9.0",
     "axios": "^1.10.0",
@@ -41,6 +42,7 @@
     "react-hot-toast": "^2.5.2",
     "react-infinite-scroll-component": "^6.1.0",
     "react-markdown": "^10.1.0",
+    "react-window": "^1.8.11",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
