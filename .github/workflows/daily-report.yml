@@ -1,0 +1,90 @@
+name: Generate Daily AI Report
+
+on:
+  schedule:
+    # 每天北京时间 8:00 执行 (UTC 0:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许手动触发
+    inputs:
+      hours_back:
+        description: '收集前N小时的资讯数据 (0表示不使用时间过滤)'
+        required: false
+        default: '24'
+        type: number
+      max_articles_per_source:
+        description: 'GitHub/ArXiv每源最大文章数'
+        required: false
+        default: '3'
+        type: number
+      max_rss_articles_per_source:
+        description: 'RSS源每源最大文章数'
+        required: false
+        default: '3'
+        type: number
+      include_sources:
+        description: '包含的数据源类型'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ai-research
+          - tech-development
+          - arxiv-github-only
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Set environment variables
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
+        VOLCENGINE_ENDPOINT: ${{ secrets.VOLCENGINE_ENDPOINT }}
+        VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
+      run: echo "环境变量已设置"
+        
+    - name: Generate Daily Report
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
+        VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
+        HOURS_BACK: ${{ github.event.inputs.hours_back || '24' }}
+        MAX_ARTICLES_PER_SOURCE: ${{ github.event.inputs.max_articles_per_source || '3' }}
+        MAX_RSS_ARTICLES_PER_SOURCE: ${{ github.event.inputs.max_rss_articles_per_source || '3' }}
+        INCLUDE_SOURCES: ${{ github.event.inputs.include_sources || 'all' }}
+      run: |
+        echo "🚀 开始生成AI日报..."
+        echo "⏰ 时间范围: 过去 $HOURS_BACK 小时"
+        echo "📊 GitHub/ArXiv每源文章数: $MAX_ARTICLES_PER_SOURCE"
+        echo "📰 RSS每源文章数: $MAX_RSS_ARTICLES_PER_SOURCE"
+        echo "🎯 数据源类型: $INCLUDE_SOURCES"
+        npx tsx scripts/generateDailyReport.ts
+      
+    - name: Notify success
+      if: success()
+      run: |
+        echo "✅ AI日报生成成功！"
+        echo "时间: $(date)"
+        
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ AI日报生成失败！"
+        echo "时间: $(date)"

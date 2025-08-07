@@ -58,3 +58,153 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-blue);
 }
+
+/* 骨架屏 shimmer 动画 */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 50%, #f0f0f0 100%);
+  background-size: 200px 100%;
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* 按钮点击反馈 */
+.filter-btn, .back-to-today-btn, .view-toggle-btn {
+  transform: scale(1);
+  transition: all 0.2s ease-in-out;
+}
+
+.filter-btn:active, .back-to-today-btn:active, .view-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.filter-btn:hover, .back-to-today-btn:hover, .view-toggle-btn:hover {
+  transform: scale(1.02);
+}
+
+/* 日报卡片交互动画 - 无边框现代设计 */
+.daily-report-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.daily-report-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 移除所有可能的黑色边框 */
+.daily-report-card,
+.daily-report-card *,
+.bg-white {
+  border-color: transparent !important;
+}
+
+/* 骨架屏无边框设计 */
+.animate-pulse {
+  border: none !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* react-window 虚拟滚动指示器样式 */
+.virtual-scroll-indicator {
+  backdrop-filter: blur(10px);
+  animation: fadeIn 0.3s ease-out;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 搜索框焦点效果 */
+.search-input:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+/* 骨架屏渐变优化 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* 进度条专用样式 */
+.progress-container {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.progress-bar {
+  border: none;
+  outline: none;
+  border-radius: 0;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+  backdrop-filter: none;
+}
+
+.progress-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    rgba(255,255,255,0.1) 0%, 
+    rgba(255,255,255,0.3) 50%, 
+    rgba(255,255,255,0.1) 100%);
+  animation: progress-shine 2s ease-in-out infinite;
+}
+
+@keyframes progress-shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/* 响应式动画优化 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer,
+  .animate-fadeIn,
+  .daily-report-card,
+  .progress-bar {
+    animation: none;
+    transition: none;
+  }
+  
+  .progress-bar::before {
+    display: none;
+  }
+}
