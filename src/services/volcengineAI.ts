@@ -175,6 +175,11 @@ ${articlesText}
    * 调用火山引擎 API
    */
   private async callAPI(messages: ChatMessage[]): Promise<string | null> {
+    const systemMessage: ChatMessage = {
+      role: 'system',
+      content: '你是一个专业的AI新闻编辑，你的任务是根据用户提供的内容，生成简洁、准确、专业的中文总结。'
+    };
+
     const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: {
@@ -183,7 +188,7 @@ ${articlesText}
       },
       body: JSON.stringify({
         model: this.model,
-        messages: messages,
+        messages: [systemMessage, ...messages],
         max_tokens: 500,
         temperature: 0.7,
         stream: false
