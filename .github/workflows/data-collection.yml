@@ -1,62 +1,58 @@
-name: AI 日报数据收集
+name: AI 日报数据收集 (已停用)
 
 on:
-  # 定时任务：每天早上8点和晚上8点 (北京时间)
-  schedule:
-    - cron: '0 0 * * *'    # 早上8点北京时间 (UTC 0点)
-    - cron: '0 12 * * *'   # 晚上8点北京时间 (UTC 12点)
-  
-  # 允许手动触发
-  workflow_dispatch:
-    inputs:
-      sources:
-        description: '指定爬取源 (多个用逗号分隔，如: arxiv,github)'
-        required: false
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - arxiv
-          - github
-          - rss
-          - stackoverflow
-          - arxiv,github
-          - arxiv,rss
-          - github,rss
-      use_source_config:
-        description: '使用智能源配置 (推荐)'
-        required: false
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
-      max_results:
-        description: '统一最大结果数 (仅当关闭智能配置时使用，0表示不限制)'
-        required: false
-        default: '0'
-        type: string
-      continue_on_error:
-        description: '遇到错误时继续执行其他源'
-        required: false
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
-      hours_back:
-        description: '收集前N小时的数据 (0表示不使用时间过滤)'
-        required: false
-        default: '12'
-        type: number
-      runner_type:
-        description: 'Runner 类型选择'
-        required: false
-        default: 'github-hosted'
-        type: choice
-        options:
-          - 'github-hosted'
-          - 'self-hosted'
+  # 已停用 - 使用永远不会触发的条件
+  push:
+    branches:
+      - 'never-trigger-this-branch'
+  #     sources:
+  #       description: '指定爬取源 (多个用逗号分隔，如: arxiv,github)'
+  #       required: false
+  #       default: 'all'
+  #       type: choice
+  #       options:
+  #         - all
+  #         - arxiv
+  #         - github
+  #         - rss
+  #         - stackoverflow
+  #         - arxiv,github
+  #         - arxiv,rss
+  #         - github,rss
+  #     use_source_config:
+  #       description: '使用智能源配置 (推荐)'
+  #       required: false
+  #       default: 'true'
+  #       type: choice
+  #       options:
+  #         - 'true'
+  #         - 'false'
+  #     max_results:
+  #       description: '统一最大结果数 (仅当关闭智能配置时使用，0表示不限制)'
+  #       required: false
+  #       default: '0'
+  #       type: string
+  #     continue_on_error:
+  #       description: '遇到错误时继续执行其他源'
+  #       required: false
+  #       default: 'true'
+  #       type: choice
+  #       options:
+  #         - 'true'
+  #         - 'false'
+  #     hours_back:
+  #       description: '收集前N小时的数据 (0表示不使用时间过滤)'
+  #       required: false
+  #       default: '12'
+  #       type: number
+  #     runner_type:
+  #       description: 'Runner 类型选择'
+  #       required: false
+  #       default: 'github-hosted'
+  #       type: choice
+  #       options:
+  #         - 'github-hosted'
+  #         - 'self-hosted'
 
 jobs:
   workflow_init:
