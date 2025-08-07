@@ -149,6 +149,42 @@ export class VolcengineAI {
    * 构建日报整体摘要的提示词
    * 注意：这里的 article.summary 已经是 AI 生成的详细总结，不是原始摘要
    */
+  /**
+   * 从摘要中生成标题
+   */
+  async generateTitleFromSummary(summary: string): Promise<string> {
+    try {
+      const prompt = `根据以下中文摘要，生成一个简洁、精炼、不超过15个字的中文标题：
+
+摘要：
+${summary}
+
+要求：
+1. 准确捕捉摘要的核心内容。
+2. 标题要吸引人，但不能夸张失实。
+3. 严格控制在15个字以内。
+4. 直接输出标题，不要包含任何额外文字或引号。
+
+生成的标题：`;
+
+      const title = await this.callAPI([
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]);
+      
+      return title || 'AI总结生成标题'; // 如果生成失败，返回一个默认标题
+    } catch (error) {
+      console.error('🔥 从摘要生成标题失败:', error);
+      return 'AI总结生成标题';
+    }
+  }
+
+  /**
+   * 构建日报整体摘要的提示词
+   * 注意：这里的 article.summary 已经是 AI 生成的详细总结，不是原始摘要
+   */
   private buildDailyPrompt(articles: any[]): string {
     const articlesText = articles.map((article, index) => 
       `${index + 1}. 【${article.source_name}】${article.title}\n   AI详细总结: ${article.summary}`
