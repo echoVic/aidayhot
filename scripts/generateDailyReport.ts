@@ -242,7 +242,8 @@ class GitHubDailyReportGenerator {
       
       console.log(`📊 将抓取 ${filteredSources.length} 个RSS源（共 ${recommendedSources.length} 个可用）`);
       
-      for (const source of filteredSources) {
+      for (let i = 0; i < filteredSources.length; i++) {
+        const source = filteredSources[i];
         try {
           console.log(`📡 正在抓取: ${source.name} (${source.category})`);
           const rssResult = await this.rssCrawler.crawl(source.url);
@@ -268,6 +269,12 @@ class GitHubDailyReportGenerator {
           }
         } catch (error) {
           console.log(`❌ ${source.name} 抓取失败:`, error);
+        }
+        
+        // 在RSS源之间添加延迟，避免429错误
+        if (i < filteredSources.length - 1) {
+          console.log('⏳ 等待2秒后继续下一个RSS源...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 

@@ -50,23 +50,35 @@ export class RSSCrawler extends BaseCrawler {
 
       console.log(`开始爬取RSS源: ${url}`);
       
-      // 使用got获取RSS内容
+      // 使用got获取RSS内容，增强重试和延迟机制
       const response = await got(url, {
         timeout: {
-          request: this.options.timeout || 15000
+          request: this.options.timeout || 20000 // 增加超时时间到20秒
         },
         followRedirect: true,
         maxRedirects: 10,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
           'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
           'Accept-Encoding': 'gzip, deflate, br',
           'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Upgrade-Insecure-Requests': '1',
           ...this.options.headers
         },
         retry: {
-          limit: 2
+          limit: 3, // 增加重试次数
+          methods: ['GET'],
+          statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524], // 包含429状态码
+          errorCodes: ['ETIMEDOUT', 'ECONNRESET', 'EADDRINUSE', 'ECONNREFUSED', 'EPIPE', 'ENOTFOUND', 'ENETUNREACH', 'EAI_AGAIN'],
+          calculateDelay: ({ attemptCount }) => {
+            // 指数退避：第1次重试等待2秒，第2次等待4秒，第3次等待8秒
+            return Math.min(2000 * Math.pow(2, attemptCount - 1), 10000);
+          }
         }
       });
 
