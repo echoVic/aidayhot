@@ -568,14 +568,21 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
       if (reset) {
         setReports(filteredReports);
         setCurrentPage(0);
-        // 设置默认展开所有日报
-        setExpandedCards(new Set(filteredReports.map(report => report.date)));
+        // 只在初次加载时设置默认展开，避免覆盖用户的收起操作
+        if (page === 0 && reports.length === 0) {
+          setExpandedCards(new Set(filteredReports.map(report => report.date)));
+        }
       } else {
         setReports(prev => [...prev, ...filteredReports]);
-        // 为新加载的日报也设置为展开状态
+        // 为新加载的日报也设置为展开状态（但不覆盖已有状态）
         setExpandedCards(prev => {
           const newSet = new Set(prev);
-          filteredReports.forEach(report => newSet.add(report.date));
+          filteredReports.forEach(report => {
+            // 只为新日报设置展开，不覆盖已有的状态
+            if (!newSet.has(report.date)) {
+              newSet.add(report.date);
+            }
+          });
           return newSet;
         });
       }
