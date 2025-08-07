@@ -113,7 +113,6 @@ class GitHubDailyReportGenerator {
   async collectTodayData(): Promise<ArticleData[]> {
     console.log('🚀 开始抓取今日AI资讯数据...');
     const articles: ArticleData[] = [];
-    const volcengineAI = createVolcengineAI();
 
     try {
       // 1. 抓取 ArXiv 论文
@@ -126,11 +125,8 @@ class GitHubDailyReportGenerator {
           for (const paper of arxivResult.papers) {
             const publishTime = paper.published instanceof Date ? paper.published.toISOString() : new Date().toISOString();
             if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < maxArxivArticles) {
-              // 检查并生成标题
-              const title = await this.generateTitleForArticle({ title: paper.title, description: paper.summary }, volcengineAI);
-              
               articles.push({
-                title: title,
+                title: paper.title || '无标题', // 保持原始标题，AI摘要阶段会处理
                 original_summary: paper.summary?.substring(0, 200) + '...', // 保留原始摘要
                 summary: paper.summary?.substring(0, 200) + '...', // 初始值，后面会被AI替换
                 source_url: paper.abstractUrl || paper.pdfUrl || 'https://arxiv.org',
@@ -159,11 +155,8 @@ class GitHubDailyReportGenerator {
           for (const repo of githubResult.repositories) {
             const publishTime = repo.updatedAt instanceof Date ? repo.updatedAt.toISOString() : new Date().toISOString();
             if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < maxGithubProjects) {
-              // 检查并生成标题
-              const title = await this.generateTitleForArticle({ title: repo.name, description: repo.description }, volcengineAI);
-              
               articles.push({
-                title: title,
+                title: repo.name || '无标题', // 保持原始标题，AI摘要阶段会处理
                 original_summary: repo.description || '暂无描述', // 保留原始摘要
                 summary: repo.description || '暂无描述', // 初始值，后面会被AI替换
                 source_url: repo.url || `https://github.com/${repo.fullName}` || 'https://github.com',
@@ -258,11 +251,8 @@ class GitHubDailyReportGenerator {
             for (const item of rssResult.data.items) {
               const publishTime = item.pubDate instanceof Date ? item.pubDate.toISOString() : new Date().toISOString();
               if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < MAX_RSS_ARTICLES_PER_SOURCE) {
-                // 检查并生成标题
-                const title = await this.generateTitleForArticle({ title: item.title, description: item.description }, volcengineAI);
-                
                 articles.push({
-                  title: title,
+                  title: item.title || '无标题', // 保持原始标题，AI摘要阶段会处理
                   original_summary: item.description?.substring(0, 200) + '...' || '暂无摘要', // 保留原始摘要
                   summary: item.description?.substring(0, 200) + '...' || '暂无摘要', // 初始值，后面会被AI替换
                   source_url: item.link || source.url,
@@ -290,35 +280,7 @@ class GitHubDailyReportGenerator {
     }
   }
 
-  /**
-   * 为文章生成标题（如果标题为空）
-   */
-  async generateTitleForArticle(item: any, volcengineAI: any): Promise<string> {
-    // 如果标题存在且不为空，直接返回
-    if (item.title && item.title.trim() !== '') {
-      return item.title;
-    }
-    
-    // 如果火山引擎AI可用，尝试生成标题
-    if (volcengineAI) {
-      try {
-        const description = item.description || item.content || '';
-        if (description && description.trim() !== '') {
-          console.log(`🤖 为文章生成AI标题...`);
-          const generatedTitle = await volcengineAI.generateTitleFromSummary(description);
-          if (generatedTitle && generatedTitle.trim() !== '') {
-            console.log(`✅ 生成标题: ${generatedTitle}`);
-            return generatedTitle;
-          }
-        }
-      } catch (error) {
-        console.error('❌ AI标题生成失败:', error);
-      }
-    }
-    
-    // 如果AI生成失败或不可用，返回默认标题
-    return '无标题';
-  }
+
 
   /**
    * 生成AI摘要

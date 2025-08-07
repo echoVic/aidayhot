@@ -62,7 +62,7 @@ export class VolcengineAI {
   }
 
   /**
-   * 为每篇文章生成详细中文总结
+   * 为每篇文章生成详细中文总结，同时处理缺失的标题
    */
   private async generateArticleSummaries(articles: any[]): Promise<any[]> {
     const articlesWithSummaries = [];
@@ -71,18 +71,44 @@ export class VolcengineAI {
       const article = articles[i];
       console.log(`📖 处理第 ${i + 1}/${articles.length} 篇文章: ${article.title}`);
       
+      let finalTitle = article.title;
+      let finalSummary = article.summary;
+      
       try {
-        const prompt = this.buildArticlePrompt(article);
+        // 1. 生成摘要
+        const summaryPrompt = this.buildArticlePrompt(article);
         const detailedSummary = await this.callAPI([
           {
             role: 'user',
-            content: prompt
+            content: summaryPrompt
           }
         ]);
         
+        if (detailedSummary) {
+          finalSummary = detailedSummary;
+        }
+        
+        // 2. 检查并生成标题（如果需要）
+        if (!article.title || article.title.trim() === '' || article.title === '无标题') {
+          console.log(`   🤖 为文章生成AI标题...`);
+          try {
+            const generatedTitle = await this.generateTitleFromSummary(finalSummary || article.original_summary || '');
+            if (generatedTitle && generatedTitle.trim() !== '') {
+              finalTitle = generatedTitle.replace(/["""]/g, ''); // 移除可能的引号
+              console.log(`   ✅ 生成标题: ${finalTitle}`);
+            } else {
+              finalTitle = '无标题';
+            }
+          } catch (titleError) {
+            console.error(`   ❌ 标题生成失败:`, titleError);
+            finalTitle = '无标题';
+          }
+        }
+        
         articlesWithSummaries.push({
           ...article,
-          summary: detailedSummary || article.summary || '暂无摘要' // AI生成的详细总结
+          title: finalTitle,
+          summary: finalSummary || article.summary || '暂无摘要'
         });
         
         // 避免API调用过于频繁
@@ -90,10 +116,11 @@ export class VolcengineAI {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       } catch (error) {
-        console.error(`❌ 文章 "${article.title}" 总结生成失败:`, error);
+        console.error(`❌ 文章 "${article.title}" 处理失败:`, error);
         articlesWithSummaries.push({
           ...article,
-          summary: article.summary || '暂无摘要' // 如果AI失败，使用原始摘要
+          title: finalTitle || '无标题',
+          summary: article.summary || '暂无摘要'
         });
       }
     }
@@ -210,33 +237,49 @@ ${articlesText}
   /**
    * 调用火山引擎 API
    */
-  private async callAPI(messages: ChatMessage[]): Promise<string | null> {
+  private async callAPI(messages: ChatMessage[], retries = 2, timeout = 20000): Promise<string | null> {
     const systemMessage: ChatMessage = {
       role: 'system',
       content: '你是一个专业的AI新闻编辑，你的任务是根据用户提供的内容，生成简洁、准确、专业的中文总结。'
     };
 
-    const response = await fetch(this.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [systemMessage, ...messages],
-        max_tokens: 500,
-        temperature: 0.7,
-        stream: false
-      })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    if (!response.ok) {
-      throw new Error(`火山引擎 API 错误: ${response.status} ${response.statusText}`);
+    try {
+      const response = await fetch(this.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [systemMessage, ...messages],
+          max_tokens: 500,
+          temperature: 0.7,
+          stream: false
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`火山引擎 API 错误: ${response.status} ${response.statusText}`);
+      }
+
+      const data: ChatResponse = await response.json();
+      return data.choices?.[0]?.message?.content || null;
+    } catch (error) {
+      if (retries > 0) {
+        console.log(`🔄 重试 ${retries} 次...`);
+        return this.callAPI(messages, retries - 1, timeout);
+      } else {
+        console.error('🔥 火山引擎 API 调用失败:', error);
+        return null;
+      }
     }
-
-    const data: ChatResponse = await response.json();
-    return data.choices?.[0]?.message?.content || null;
   }
 
   /**
