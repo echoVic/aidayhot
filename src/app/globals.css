@@ -249,7 +249,7 @@ body {
 
 .skip-link {
   position: absolute;
-  top: -40px;
+  top: -100px;
   left: 6px;
   background: #000;
   color: white;
@@ -258,10 +258,14 @@ body {
   border-radius: 0 0 4px 4px;
   z-index: 100;
   transition: top 0.3s;
+  opacity: 0;
+  visibility: hidden;
 }
 
 .skip-link:focus {
   top: 0;
+  opacity: 1;
+  visibility: visible;
 }
 
 /* 焦点样式优化 */

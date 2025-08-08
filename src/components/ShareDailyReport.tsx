@@ -58,7 +58,7 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
       
       const dataUrl = await toPng(cardRef.current, {
         quality: 1.0,
-        pixelRatio: 1,
+        pixelRatio: 3,
         backgroundColor: '#ffffff',
         // 明确设置宽度确保完整捕获
         width: 900,
