@@ -3,7 +3,9 @@ import * as zlib from 'zlib';
 import { BaseCrawler } from './BaseCrawler';
 import { CrawlerOptions, StackOverflowQuestion, StackOverflowResult } from './types';
 
-export interface StackOverflowAnswer {
+
+
+interface StackOverflowAnswer {
   answerId: number;
   questionId: number;
   content: string;
@@ -21,7 +23,7 @@ export interface StackOverflowAnswer {
   crawledAt: Date;
 }
 
-export interface StackOverflowAnswerResult {
+interface StackOverflowAnswerResult {
   questionId: number;
   answers: StackOverflowAnswer[];
   crawledAt: Date;
@@ -367,4 +369,4 @@ export class StackOverflowCrawler extends BaseCrawler {
     
     return textOnly.substring(0, maxLength).trim() + '...';
   }
-} 
+}

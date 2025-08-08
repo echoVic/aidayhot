@@ -63,9 +63,3 @@ if (!supabaseUrl || !supabaseKey) {
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 导出环境信息用于调试
-export const environmentInfo = {
-  isGitHubActions: !!process.env.GITHUB_ACTIONS,
-  isLocal: fs.existsSync(path.join(process.cwd(), '.env.local')),
-  supabaseUrl: supabaseUrl?.substring(0, 30) + '...',
-  hasServiceRoleKey: !!supabaseKey
-};

@@ -183,7 +183,7 @@ async function updateOpenAINews(): Promise<void> {
         // 应用时间过滤
         if (timeRange) {
           const originalCount = items.length;
-          items = items.filter(item => {
+          items = items.filter((item: any) => {
             if (!item.pubDate) return false;
             const pubDate = new Date(item.pubDate);
             return pubDate >= timeRange.fromTime && pubDate <= timeRange.toTime;

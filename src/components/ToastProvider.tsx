@@ -1,74 +1,7 @@
 'use client';
 
-import { Toaster, toast } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 
-// Toast 方法
-export const showToast = {
-  success: (message: string, title?: string) => {
-    toast.success(title ? `${title}: ${message}` : message, {
-      duration: 3000,
-      position: 'top-right',
-      style: {
-        background: '#10B981',
-        color: '#fff',
-        fontSize: '14px',
-        fontWeight: '500',
-      },
-    });
-  },
-  error: (message: string, title?: string) => {
-    toast.error(title ? `${title}: ${message}` : message, {
-      duration: 5000,
-      position: 'top-right',
-      style: {
-        background: '#EF4444',
-        color: '#fff',
-        fontSize: '14px',
-        fontWeight: '500',
-      },
-    });
-  },
-  warning: (message: string, title?: string) => {
-    toast(title ? `${title}: ${message}` : message, {
-      duration: 4000,
-      position: 'top-right',
-      icon: '⚠️',
-      style: {
-        background: '#F59E0B',
-        color: '#fff',
-        fontSize: '14px',
-        fontWeight: '500',
-      },
-    });
-  },
-  info: (message: string, title?: string) => {
-    toast(title ? `${title}: ${message}` : message, {
-      duration: 3000,
-      position: 'top-right',
-      icon: 'ℹ️',
-      style: {
-        background: '#3B82F6',
-        color: '#fff',
-        fontSize: '14px',
-        fontWeight: '500',
-      },
-    });
-  },
-  loading: (message: string) => {
-    return toast.loading(message, {
-      position: 'top-right',
-      style: {
-        background: '#6B7280',
-        color: '#fff',
-        fontSize: '14px',
-        fontWeight: '500',
-      },
-    });
-  },
-  dismiss: (toastId?: string) => {
-    toast.dismiss(toastId);
-  },
-};
 
 // Toast Provider 组件
 export default function ToastProvider() {

@@ -11,9 +11,6 @@ Disallow: /*.json$
 Disallow: /*.xml$
 
 # 允许访问所有主要页面和内容
-Allow: /tech
-Allow: /research
-Allow: /community
 Allow: /subscription
 Allow: /*.css$
 Allow: /*.js$

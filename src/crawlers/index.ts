@@ -6,41 +6,14 @@
 // Export types
 export * from './types';
 
-// Export base crawler
-export { BaseCrawler } from './BaseCrawler';
-
-// Export specific crawlers
+// Export specific crawlers (only used ones)
 export { ArxivCrawler } from './ArxivCrawler';
 export { GitHubCrawler } from './GitHubCrawler';
-export { PapersWithCodeCrawler } from './PapersWithCodeCrawler';
 export { RSSCrawler } from './RSSCrawler';
 export { StackOverflowCrawler } from './StackOverflowCrawler';
 
-// Legacy JavaScript crawlers have been removed
-// All crawlers should now be implemented in TypeScript
-
-// Crawler factory
-import { ArxivCrawler } from './ArxivCrawler';
-import { GitHubCrawler } from './GitHubCrawler';
-import type { CrawlerOptions } from './types';
-
-export interface CrawlerFactory {
-  createArxivCrawler(options?: CrawlerOptions): ArxivCrawler;
-  createGitHubCrawler(token?: string, options?: CrawlerOptions): GitHubCrawler;
-}
-
-export const crawlerFactory: CrawlerFactory = {
-  createArxivCrawler(options?: CrawlerOptions) {
-    return new ArxivCrawler(options);
-  },
-  
-  createGitHubCrawler(token?: string, options?: CrawlerOptions) {
-    return new GitHubCrawler(token, options);
-  },
-};
-
 // Crawler manager for handling multiple crawlers
-export class CrawlerManager {
+class CrawlerManager {
   private crawlers: Map<string, any> = new Map();
 
   /**
@@ -131,55 +104,3 @@ export class CrawlerManager {
   }
 }
 
-// Test utility function
-export async function testAllCrawlers(): Promise<void> {
-  console.log('🧪 Testing all TypeScript crawlers...');
-
-  try {
-    // Test ArXiv crawler
-    const arxivCrawler = new ArxivCrawler();
-    console.log('📄 Testing ArXiv crawler...');
-    const arxivResult = await arxivCrawler.testConnection();
-    console.log(`ArXiv: ${arxivResult.success ? '✅' : '❌'} (${arxivResult.papers?.length || 0} papers)`);
-
-    // Test GitHub crawler
-    const githubCrawler = new GitHubCrawler();
-    console.log('🐙 Testing GitHub crawler...');
-    const githubResult = await githubCrawler.testConnection();
-    console.log(`GitHub: ${githubResult.success ? '✅' : '❌'}`);
-
-  } catch (error) {
-    console.error('❌ Crawler testing failed:', error);
-  }
-}
-
-// Migration helper for converting JS results to TS types
-export class CrawlerMigrationHelper {
-  /**
-   * Convert old JavaScript ArXiv results to TypeScript format
-   */
-  static convertArxivResult(jsResult: any): import('./types').ArxivCrawlerResult {
-    return {
-      success: jsResult.success || false,
-      query: jsResult.query || '',
-      totalResults: jsResult.totalResults || 0,
-      papers: jsResult.papers || [],
-      crawledAt: jsResult.crawledAt ? new Date(jsResult.crawledAt) : new Date(),
-      error: jsResult.error,
-    };
-  }
-
-  /**
-   * Convert old JavaScript GitHub results to TypeScript format
-   */
-  static convertGitHubResult(jsResult: any): import('./types').GitHubCrawlerResult {
-    return {
-      success: jsResult.success || false,
-      query: jsResult.query,
-      username: jsResult.username,
-      repositories: jsResult.repositories || [],
-      crawledAt: jsResult.crawledAt ? new Date(jsResult.crawledAt) : new Date(),
-      error: jsResult.error,
-    };
-  }
-}

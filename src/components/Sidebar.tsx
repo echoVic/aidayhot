@@ -2,7 +2,6 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { PageContentService } from '../lib/database';
 
 interface SidebarProps {
   selectedCategory: string;
@@ -31,7 +30,10 @@ export default function Sidebar({ selectedCategory, onCategoryChange }: SidebarP
       setIsLoading(true);
       setError(null);
       
-      const data = await PageContentService.getPageNavigation();
+      // 使用静态数据替代已删除的 PageContentService
+      const data = [
+        { id: 'all', name: '全部', href: '/', count: 0, icon: '📰' },
+      ];
       setPageNavigation(data);
       
     } catch (error) {

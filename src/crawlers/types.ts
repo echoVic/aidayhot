@@ -31,7 +31,7 @@ export interface PaginatedCrawlerResult<T = any> extends CrawlerResult<T[]> {
 }
 
 // Article/Content interfaces
-export interface CrawledArticle {
+interface CrawledArticle {
   id: string;
   title: string;
   summary: string;
@@ -163,7 +163,7 @@ export interface RSSCrawlerResult extends CrawlerResult<RSSFeed> {
 }
 
 // Video platform interfaces
-export interface VideoContent {
+interface VideoContent {
   id: string;
   title: string;
   description: string;
@@ -184,14 +184,14 @@ export interface VideoContent {
   checksum: string;
 }
 
-export interface VideoCrawlerResult extends CrawlerResult<VideoContent[]> {
+interface VideoCrawlerResult extends CrawlerResult<VideoContent[]> {
   query?: string;
   platform: string;
   videos: VideoContent[];
 }
 
 // Web scraping interfaces
-export interface WebSiteConfig {
+interface WebSiteConfig {
   name: string;
   url: string;
   category: string;
@@ -208,7 +208,7 @@ export interface WebSiteConfig {
   encoding?: string;
 }
 
-export interface WebArticle {
+interface WebArticle {
   title: string;
   link: string;
   excerpt?: string;
@@ -220,13 +220,13 @@ export interface WebArticle {
   checksum?: string;
 }
 
-export interface WebCrawlerResult extends CrawlerResult<WebArticle[]> {
+interface WebCrawlerResult extends CrawlerResult<WebArticle[]> {
   siteName: string;
   articles: WebArticle[];
 }
 
 // Papers with Code interfaces
-export interface PapersWithCodePaper {
+interface PapersWithCodePaper {
   id: string;
   title: string;
   abstract: string;
@@ -245,7 +245,7 @@ export interface PapersWithCodePaper {
   checksum: string;
 }
 
-export interface PapersWithCodeResult extends PaginatedCrawlerResult<PapersWithCodePaper> {
+interface PapersWithCodeResult extends PaginatedCrawlerResult<PapersWithCodePaper> {
   query: string;
   papers: PapersWithCodePaper[];
   totalFound: number;
@@ -283,7 +283,7 @@ export interface StackOverflowResult extends PaginatedCrawlerResult<StackOverflo
 }
 
 // Social media interfaces
-export interface SocialMediaPost {
+interface SocialMediaPost {
   id: string;
   content: string;
   url: string;
@@ -307,7 +307,7 @@ export interface SocialMediaPost {
   checksum: string;
 }
 
-export interface SocialMediaResult extends CrawlerResult<SocialMediaPost[]> {
+interface SocialMediaResult extends CrawlerResult<SocialMediaPost[]> {
   platform: string;
   query?: string;
   posts: SocialMediaPost[];
@@ -322,14 +322,14 @@ export interface CrawlerError extends Error {
 }
 
 // Cache interfaces
-export interface CacheEntry<T = any> {
+interface CacheEntry<T = any> {
   data: T;
   timestamp: Date;
   ttl: number;
   key: string;
 }
 
-export interface CacheOptions {
+interface CacheOptions {
   ttl?: number; // Time to live in seconds
   maxSize?: number;
   strategy?: 'lru' | 'fifo' | 'ttl';
@@ -350,7 +350,7 @@ export interface RateLimitStatus {
 }
 
 // Enhanced RSS Types for new RSSCrawler
-export interface RSSFeedInfo {
+interface RSSFeedInfo {
   title: string;
   description: string;
   link: string;
@@ -358,7 +358,7 @@ export interface RSSFeedInfo {
   language: string;
 }
 
-export interface RSSFeedItem {
+interface RSSFeedItem {
   contentId: string;
   sourceId: string;
   originalUrl: string;

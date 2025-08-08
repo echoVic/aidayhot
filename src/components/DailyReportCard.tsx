@@ -16,7 +16,7 @@ export interface NewsItem {
   tags?: string[];
 }
 
-export interface DailyReportContent {
+interface DailyReportContent {
   articles: NewsItem[];
   metadata: {
     totalArticles: number;

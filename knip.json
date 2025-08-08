@@ -1,0 +1,21 @@
+{
+  "entry": [
+    "src/app/**/*.{ts,tsx}",
+    "src/components/**/*.{ts,tsx}",
+    "src/lib/**/*.{ts,tsx}",
+    "src/services/**/*.{ts,tsx}",
+    "scripts/**/*.ts",
+    "eslint.config.mjs"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "*.{ts,tsx,js,mjs}"],
+  "ignore": [
+    "src/crawlers/**/*",
+    "database/**/*",
+    "docs/**/*",
+    "node_modules/**/*",
+    ".next/**/*"
+  ],
+  "ignoreDependencies": ["tailwindcss"],
+  "ignoreExportsUsedInFile": true,
+  "includeEntryExports": true
+}

@@ -11,50 +11,7 @@ if (!supabase || typeof supabase.from !== 'function') {
 }
 
 // 类型定义
-export interface Article {
-  id: string
-  title: string
-  summary: string
-  category: string
-  author: string
-  publish_time: string
-  read_time: string
-  views: number
-  likes: number
-  tags: string[]
-  image_url: string
-  is_hot: boolean
-  is_new: boolean
-  source_url?: string
-  source_type?: string
-  source_name?: string
-  source_category?: string
-  created_at?: string
-  updated_at?: string
-  metadata?: any
-}
 
-export interface Category {
-  id?: number
-  name: string
-  href: string
-  count: number
-  created_at?: string
-}
 
-export interface Database {
-  public: {
-    Tables: {
-      articles: {
-        Row: Article
-        Insert: Omit<Article, 'created_at' | 'updated_at'>
-        Update: Partial<Omit<Article, 'created_at' | 'updated_at'>>
-      }
-      categories: {
-        Row: Category
-        Insert: Omit<Category, 'id' | 'created_at'>
-        Update: Partial<Omit<Category, 'id' | 'created_at'>>
-      }
-    }
-  }
-} 
+// Article 类型已被移除 - articles 表已清理
+// 如果需要文章相关功能，请重新定义相关类型
