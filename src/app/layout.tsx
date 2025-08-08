@@ -1,6 +1,7 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { HeroUIProvider } from '@heroui/react';
 import ToastProvider from '../components/ToastProvider';
 import "./globals.css";
 
@@ -122,9 +123,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-        <ToastProvider />
-        <Analytics />
+        <HeroUIProvider>
+          {children}
+          <ToastProvider />
+          <Analytics />
+        </HeroUIProvider>
       </body>
     </html>
   );

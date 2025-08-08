@@ -18,6 +18,7 @@
     "cleanup-tags:clean": "tsx scripts/cleanupTags.ts clean"
   },
   "dependencies": {
+    "@heroui/react": "^2.8.2",
     "@supabase/supabase-js": "^2.50.0",
     "@types/react-window": "^1.8.8",
     "@vercel/analytics": "^1.5.0",
@@ -26,6 +27,7 @@
     "dotenv": "^16.5.0",
     "fast-xml-parser": "^5.2.5",
     "got": "^14.4.7",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.537.0",
     "next": "15.3.4",
     "react": "^19.0.0",
