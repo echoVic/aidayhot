@@ -1,9 +1,10 @@
 'use client';
 
-import { CalendarDays, ChevronDown, ChevronRight, Clock, ExternalLink, Share2 } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronRight, Clock, ExternalLink } from 'lucide-react';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import OptimizedImage from './OptimizedImage';
+import ShareButton from './ShareButton';
 
 // 类型定义
 export interface NewsItem {
@@ -51,13 +52,6 @@ const DailyReportCard = React.memo<DailyReportCardProps>(({
   isMobile = false,
   onShare
 }) => {
-  // 分享处理函数
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onShare) {
-      onShare(report);
-    }
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
@@ -92,14 +86,7 @@ const DailyReportCard = React.memo<DailyReportCardProps>(({
           {/* 操作按钮区 */}
           <div className="flex items-center gap-2">
             {/* 分享按钮 */}
-            <button 
-              onClick={handleShare}
-              className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-              title="分享日报"
-              aria-label="分享日报"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
+            <ShareButton report={report} />
             
             {/* 展开/收起图标 */}
             <div className="flex-shrink-0">
@@ -250,6 +237,8 @@ const DailyReportCard = React.memo<DailyReportCardProps>(({
           <span>由 AI 自动生成和整理</span>
         </div>
       </div>
+
+
     </div>
   );
 });

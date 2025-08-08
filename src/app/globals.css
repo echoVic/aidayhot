@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* 导入分享样式 */
+@import '../styles/share.css';
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -57,6 +60,32 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-blue);
+}
+
+/* HeroUI Modal 滚动条样式 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  border: 2px solid #f1f5f9;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* 火狐浏览器滚动条样式 */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
 /* 骨架屏 shimmer 动画 */

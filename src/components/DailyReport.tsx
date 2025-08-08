@@ -6,7 +6,7 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef,
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
 import DailyReportCard, { NewsItem, Report } from './DailyReportCard';
 import ErrorBoundary from './ErrorBoundary';
-import ShareModal from './ShareModal';
+import ShareDailyReport from './ShareDailyReport';
 
 type ViewMode = 'timeline' | 'grid';
 type QuickFilter = 'today' | 'week' | 'month' | 'all';
@@ -648,13 +648,10 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
 
       {/* 分享模态框 */}
       {shareReport && (
-        <ShareModal
+        <ShareDailyReport
+          report={shareReport}
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
-          url={shareUrl}
-          title={`分享 ${formatDate(shareReport.date)} 的日报`}
-          copySuccess={copySuccess}
-          onCopy={copyShareLink}
         />
       )}
     </div>

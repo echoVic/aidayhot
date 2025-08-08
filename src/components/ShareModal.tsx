@@ -1,61 +1,83 @@
 'use client';
 
-import { Copy } from 'lucide-react';
+import { Modal, ModalBody, ModalContent, ModalHeader } from '@heroui/react';
+import { X } from 'lucide-react';
 import React from 'react';
 
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
-  url: string;
-  title: string;
-  copySuccess: boolean;
-  onCopy: () => void;
+  children: React.ReactNode;
+  title?: string;
+  maxWidth?: string;
 }
 
 const ShareModal: React.FC<ShareModalProps> = ({
   isOpen,
   onClose,
-  url,
-  title,
-  copySuccess,
-  onCopy
+  children,
+  title = '分享',
 }) => {
-  if (!isOpen) return null;
-  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">分享日报</h3>
-          <p className="text-gray-600 mb-4">{title}</p>
-          
-          <div className="flex items-center gap-2 mb-6">
-            <input 
-              type="text" 
-              value={url} 
-              readOnly 
-              className="flex-1 p-2 border border-gray-300 rounded text-sm bg-gray-50"
-            />
-            <button
-              onClick={onCopy}
-              className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
-            >
-              <Copy className="h-4 w-4" />
-              {copySuccess ? '已复制' : '复制'}
-            </button>
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose}
+      size="5xl"
+      scrollBehavior="inside"
+      backdrop="blur"
+      hideCloseButton
+      motionProps={{
+        variants: {
+          enter: {
+            y: 0,
+            opacity: 1,
+            scale: 1,
+            transition: {
+              duration: 0.3,
+              ease: [0.25, 0.25, 0, 1]
+            }
+          },
+          exit: {
+            y: -20,
+            opacity: 0,
+            scale: 0.95,
+            transition: {
+              duration: 0.2,
+              ease: [0.25, 0.25, 0, 1]
+            }
+          }
+        }
+      }}
+      classNames={{
+        backdrop: "bg-black/20 backdrop-blur-md",
+        base: "bg-white/95 backdrop-blur-xl border-0 shadow-2xl max-h-[85vh] max-w-[60vw]",
+        header: "border-0 pb-0",
+        body: "pt-0 max-h-[70vh] overflow-y-auto custom-scrollbar",
+      }}
+    >
+      <ModalContent className="bg-white/95 backdrop-blur-xl rounded-3xl overflow-hidden">
+        <ModalHeader className="flex items-center justify-between px-8 pt-8 pb-6">
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
+              {title}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1 font-normal">
+              选择你喜欢的分享方式
+            </p>
           </div>
-          
-          <div className="flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
-            >
-              关闭
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full bg-gray-100/80 hover:bg-gray-200/80 transition-all duration-200 backdrop-blur-sm group"
+            aria-label="关闭"
+          >
+            <X className="h-5 w-5 text-gray-600 group-hover:text-gray-800 transition-colors" />
+          </button>
+        </ModalHeader>
+        <ModalBody className="px-8 pb-8">
+          {children}
+        </ModalBody>
+      </ModalContent>
+    </Modal>
   );
 };
 
