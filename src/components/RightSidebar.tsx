@@ -179,9 +179,10 @@ export default function RightSidebar() {
                           {article.category}
                         </span>
                         <span className="flex items-center">
-                          <Eye className="w-3 h-3 mr-1" />
-                          {formatViews(article.views)}
-                        </span>
+                  <Eye className="w-3 h-3 mr-1" aria-hidden="true" />
+                  <span className="sr-only">浏览量：</span>
+                  {formatViews(article.views)}
+                </span>
                       </div>
                     </div>
                   </div>
@@ -191,7 +192,7 @@ export default function RightSidebar() {
           ) : (
             <div className="text-center py-8">
               <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <FileText className="w-6 h-6 text-gray-400" />
+                <FileText className="w-6 h-6 text-gray-400" aria-hidden="true" />
               </div>
               <p className="text-sm text-gray-500">暂无热门文章</p>
             </div>
@@ -210,8 +211,9 @@ export default function RightSidebar() {
                 key={link.name}
                 href={link.href}
                 className="flex flex-col items-center p-3 bg-gray-50 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                aria-label={link.name}
               >
-                <span className="text-2xl mb-1">{link.icon}</span>
+                <span className="text-2xl mb-1" aria-hidden="true">{link.icon}</span>
                 <span className="text-xs font-medium text-center">{link.name}</span>
               </Link>
             ))}
@@ -255,4 +257,4 @@ export default function RightSidebar() {
       </div>
     </aside>
   );
-} 
+}

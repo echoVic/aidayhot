@@ -41,8 +41,8 @@ export default function StackOverflowCard({ article, layout = 'grid', onClick }:
         <div className="flex items-start space-x-4">
           {/* StackOverflow图标 */}
           <div className="flex-shrink-0">
-            <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center" aria-label="Stack Overflow">
+              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M15.725 0l-1.72 1.277 6.39 8.588 1.716-1.277L15.725 0zm-3.94 3.418l-1.369 1.644 8.225 6.85 1.369-1.644-8.225-6.85zm-3.15 4.465l-.905 1.94 9.702 4.517.904-1.94-9.701-4.517zm-1.85 4.86l-.44 2.093 10.473 2.201.44-2.092L6.785 12.743zM1.89 15.47V24h19.19v-8.53H1.89zm2.133 6.397V17.6h14.92v4.267H4.023z"/>
               </svg>
             </div>
@@ -76,20 +76,20 @@ export default function StackOverflowCard({ article, layout = 'grid', onClick }:
               <div className="flex items-center space-x-4 text-sm text-gray-500">
                 {/* 投票数 */}
                 <div className="flex items-center space-x-1">
-                  <ArrowUp className="w-4 h-4" />
-                  <span>{score} 票</span>
+                  <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                  <span><span className="sr-only">投票数：</span>{score} 票</span>
                 </div>
 
                 {/* 回答数 */}
                 <div className="flex items-center space-x-1">
-                  <MessageCircle className="w-4 h-4" />
-                  <span>{answerCount} 回答</span>
+                  <MessageCircle className="w-4 h-4" aria-hidden="true" />
+                  <span><span className="sr-only">回答数：</span>{answerCount} 回答</span>
                 </div>
 
                 {/* 浏览数 */}
                 <div className="flex items-center space-x-1">
-                  <Eye className="w-4 h-4" />
-                  <span>{formatNumber(viewCount)} 浏览</span>
+                  <Eye className="w-4 h-4" aria-hidden="true" />
+                  <span><span className="sr-only">浏览量：</span>{formatNumber(viewCount)}</span>
                 </div>
 
                 {/* 提问者 */}
@@ -136,8 +136,8 @@ export default function StackOverflowCard({ article, layout = 'grid', onClick }:
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center" aria-label="Stack Overflow">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M15.725 0l-1.72 1.277 6.39 8.588 1.716-1.277L15.725 0zm-3.94 3.418l-1.369 1.644 8.225 6.85 1.369-1.644-8.225-6.85zm-3.15 4.465l-.905 1.94 9.702 4.517.904-1.94-9.701-4.517zm-1.85 4.86l-.44 2.093 10.473 2.201.44-2.092L6.785 12.743zM1.89 15.47V24h19.19v-8.53H1.89zm2.133 6.397V17.6h14.92v4.267H4.023z"/>
                 </svg>
               </div>

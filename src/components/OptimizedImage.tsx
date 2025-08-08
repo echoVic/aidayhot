@@ -197,6 +197,8 @@ export default function OptimizedImage({
         className={`bg-gray-200 flex items-center justify-center ${className}`}
         style={{ width, height, ...style }}
         ref={imageRef}
+        role="img"
+        aria-label={alt}
       >
         <span className="text-gray-500 text-sm">图片加载失败</span>
       </div>
@@ -209,7 +211,11 @@ export default function OptimizedImage({
         <div
           className="absolute inset-0 bg-gray-200 animate-pulse"
           style={{ width, height }}
-        />
+          role="status"
+          aria-label="图片加载中"
+        >
+          <span className="sr-only">图片加载中...</span>
+        </div>
       )}
 
       <Image
@@ -228,6 +234,8 @@ export default function OptimizedImage({
         onLoad={handleLoad}
         onError={handleError}
         unoptimized={imageState.currentSrc.startsWith('http') && !imageState.currentSrc.includes('_next/image')}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
       />
     </div>
   );

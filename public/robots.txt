@@ -1,0 +1,73 @@
+# AI每日热点 - 搜索引擎优化配置
+User-agent: *
+Allow: /
+
+# 禁止爬虫访问敏感路径
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+Disallow: /private/
+Disallow: /*.json$
+Disallow: /*.xml$
+
+# 允许访问所有主要页面和内容
+Allow: /tech
+Allow: /research
+Allow: /community
+Allow: /subscription
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /*.webp$
+
+# 网站地图 - 帮助搜索引擎发现所有页面
+Sitemap: https://aidayhot.com/sitemap.xml
+Sitemap: https://aidayhot.com/rss.xml
+
+# Google 特定配置
+User-agent: Googlebot
+Crawl-delay: 1
+Allow: /*.js$
+Allow: /*.css$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /*.webp$
+
+# Bing 配置
+User-agent: Bingbot
+Crawl-delay: 1
+
+# 百度配置
+User-agent: Baiduspider
+Crawl-delay: 1
+
+# 移动端爬虫
+User-agent: Googlebot-Mobile
+Allow: /
+
+# 社交媒体爬虫
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+# 图片搜索爬虫
+User-agent: Googlebot-Image
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /*.webp$
+
+# 通用爬虫配置
+User-agent: *
+Crawl-delay: 2

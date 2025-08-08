@@ -1,0 +1,41 @@
+npm warn cli npm v11.4.2 does not support Node.js v18.19.0. This version of npm supports the following node versions: `^20.17.0 || >=22.9.0`. You can find the latest version at https://nodejs.org/.
+npm warn Unknown user config "home". This will stop working in the next major version of npm.
+
+> aidayhot@0.1.0 build
+> next build
+
+   ▲ Next.js 15.3.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings in 3.0s
+
+./node_modules/.pnpm/@supabase+realtime-js@2.11.10/node_modules/@supabase/realtime-js/dist/main/RealtimeClient.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/.pnpm/@supabase+realtime-js@2.11.10/node_modules/@supabase/realtime-js/dist/main/RealtimeClient.js
+./node_modules/.pnpm/@supabase+realtime-js@2.11.10/node_modules/@supabase/realtime-js/dist/main/index.js
+./node_modules/.pnpm/@supabase+supabase-js@2.50.0/node_modules/@supabase/supabase-js/dist/module/index.js
+./src/lib/supabase.ts
+./src/app/rss.xml/route.ts
+
+   Linting and checking validity of types ...
+
+./src/components/DailyReport.tsx
+548:6  Warning: React Hook useCallback has a missing dependency: 'reports.length'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+Failed to compile.
+
+./src/app/layout.tsx:92:5
+Type error: Object literal may only specify known properties, and 'baidu' does not exist in type 'Verification'.
+
+[0m [90m 90 |[39m     google[33m:[39m [32m'your-google-verification-code'[39m[33m,[39m[0m
+[0m [90m 91 |[39m     yandex[33m:[39m [32m'your-yandex-verification-code'[39m[33m,[39m[0m
+[0m[31m[1m>[22m[39m[90m 92 |[39m     baidu[33m:[39m [32m'your-baidu-verification-code'[39m[33m,[39m[0m
+[0m [90m    |[39m     [31m[1m^[22m[39m[0m
+[0m [90m 93 |[39m   }[33m,[39m[0m
+[0m [90m 94 |[39m   other[33m:[39m {[0m
+[0m [90m 95 |[39m     [32m'apple-mobile-web-app-capable'[39m[33m:[39m [32m'yes'[39m[33m,[39m[0m
+Next.js build worker exited with code: 1 and signal: null

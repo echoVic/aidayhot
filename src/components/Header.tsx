@@ -38,12 +38,14 @@ export default function Header({
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+      <a href="#main-content" className="skip-link">跳到主内容</a>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo和标题 */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <span className="text-xl font-bold text-gray-900">📊 AI日报</span>
+            <Link href="/" className="flex items-center space-x-2" aria-label="AI每日热点首页">
+              <span className="text-xl font-bold text-gray-900" aria-hidden="true">📊</span>
+              <span className="text-xl font-bold text-gray-900">AI日报</span>
             </Link>
           </div>
 
@@ -82,9 +84,10 @@ export default function Header({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="w-48 pl-10 pr-4 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hidden md:block"
+                aria-label="搜索AI资讯"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none hidden md:flex">
-                <Search className="h-4 w-4 text-gray-400" />
+                <Search className="h-4 w-4 text-gray-400" aria-hidden="true" />
               </div>
             </div>
 
@@ -146,9 +149,10 @@ export default function Header({
                 onKeyPress={handleKeyPress}
                 className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 autoFocus
+                aria-label="搜索AI资讯"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+                <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
               </div>
               {searchQuery && (
                 <button
@@ -164,4 +168,4 @@ export default function Header({
       </div>
     </header>
   );
-} 
+}

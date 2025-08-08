@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { Suspense, useRef, useState } from 'react';
+import DailyReport from '../components/DailyReport';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import Header from '../components/Header';
-import DailyReport from '../components/DailyReport';
+import { StructuredData } from '../components/StructuredData';
 import SubscriptionSidebar from '../components/SubscriptionSidebar';
+
 
 // DailyReport组件的ref接口
 interface DailyReportRef {
@@ -53,29 +55,46 @@ export default function Home() {
   };
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-gray-50">
-        {/* 顶部导航 - 集成所有工具 */}
-        <Header 
-          onSearch={handleSearch}
-          onFilterChange={handleFilterChange}
-          onViewModeToggle={handleViewModeToggle}
-          onBackToToday={handleBackToToday}
-          currentFilter={currentFilter}
-          viewMode={viewMode}
-        />
+    <>
+      <StructuredData 
+        type="website" 
+        data={{}}
+      />
+      <StructuredData 
+        type="organization" 
+        data={{}}
+      />
+      
+      <ErrorBoundary>
+        <div className="min-h-screen bg-gray-50">
+          {/* 顶部导航 - 集成所有工具 */}
+          <Header 
+            onSearch={handleSearch}
+            onFilterChange={handleFilterChange}
+            onViewModeToggle={handleViewModeToggle}
+            onBackToToday={handleBackToToday}
+            currentFilter={currentFilter}
+            viewMode={viewMode}
+          />
 
-        {/* 主要内容区域 */}
-        <div className="flex">
-          {/* AI日报主内容 */}
-          <div className="flex-1">
-            <DailyReport ref={dailyReportRef} />
+          {/* 主要内容区域 */}
+          <div className="flex">
+            {/* AI日报主内容 */}
+            <main id="main-content" className="flex-1">
+              <Suspense fallback={<div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>}>
+                <DailyReport ref={dailyReportRef} />
+              </Suspense>
+            </main>
+            
+            {/* 订阅侧边栏 */}
+            <aside className="hidden lg:block w-80">
+              <SubscriptionSidebar />
+            </aside>
           </div>
-          
-          {/* 订阅侧边栏 */}
-          <SubscriptionSidebar />
         </div>
-      </div>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </>
   );
 }

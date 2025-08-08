@@ -1,202 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { VariableSizeList, ListChildComponentProps } from 'react-window';
-import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/lib/supabase';
-import { CalendarDays, Home, Clock, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
-
-// 类型定义
-interface NewsItem {
-  title: string;
-  url: string;
-  publishTime: string;
-  aiSummary?: string;
-  source: string;
-}
-
-interface DailyReportContent {
-  articles: NewsItem[];
-  metadata: {
-    totalArticles: number;
-    sources: string[];
-  };
-}
-
-interface Report {
-  id?: string;
-  date: string;
-  summary: string;
-  content: DailyReportContent;
-}
+import { CalendarDays, Home } from 'lucide-react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { ListChildComponentProps, VariableSizeList } from 'react-window';
+import DailyReportCard, { NewsItem, Report } from './DailyReportCard';
+import ErrorBoundary from './ErrorBoundary';
+import ShareModal from './ShareModal';
 
 type ViewMode = 'timeline' | 'grid';
 type QuickFilter = 'today' | 'week' | 'month' | 'all';
-
-// React.memo 优化的日报卡片组件
-interface DailyReportCardProps {
-  report: Report;
-  isExpanded: boolean;
-  onToggleExpansion: (reportId: string) => void;
-  formatDate: (dateString: string) => string;
-  isMobile?: boolean;
-}
-
-const DailyReportCard = React.memo<DailyReportCardProps>(({ 
-  report, 
-  isExpanded, 
-  onToggleExpansion, 
-  formatDate,
-  isMobile = false
-}) => {
-  return (
-    <div className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-      {/* 日报头部 - 可点击展开/收起 */}
-      <div 
-        className={`cursor-pointer select-none hover:bg-gray-50 transition-colors ${
-          isMobile ? 'p-4' : 'p-6'
-        }`}
-        onClick={() => onToggleExpansion(report.date)}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <CalendarDays className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-            <div>
-              <h2 className={`font-bold text-gray-900 ${
-                isMobile ? 'text-lg' : 'text-xl'
-              }`}>
-                {formatDate(report.date)}
-              </h2>
-              <p className={`text-gray-500 mt-1 ${
-                isMobile ? 'text-xs' : 'text-sm'
-              }`}>
-                基于 {report.content.metadata.totalArticles} 篇文章生成
-              </p>
-            </div>
-          </div>
-          
-          {/* 展开/收起图标 */}
-          <div className="flex-shrink-0">
-            {isExpanded ? (
-              <ChevronDown className="h-6 w-6 text-gray-400" />
-            ) : (
-              <ChevronRight className="h-6 w-6 text-gray-400" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 日报内容 - 可展开 */}
-      {isExpanded && (
-        <div className="border-t border-gray-100">
-          {/* 日报总结 */}
-          <div className="p-6 pb-4">
-            <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-400">
-              <h3 className="text-lg font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                <span>📊</span>
-                今日总结
-              </h3>
-              <div className="text-gray-700 leading-relaxed prose prose-sm max-w-none">
-                <ReactMarkdown>{report.summary}</ReactMarkdown>
-              </div>
-            </div>
-          </div>
-          
-          {/* 文章列表 */}
-          <div className="px-6 pb-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <span>📰</span>
-              今日资讯
-            </h3>
-            <div className="space-y-4">
-              {report.content.articles.map((article: NewsItem, articleIndex: number) => (
-                <div key={articleIndex} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-blue-600">{articleIndex + 1}</span>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-base font-medium text-gray-900 mb-2 line-clamp-2">
-                        <a 
-                          href={article.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="hover:text-blue-600 transition-colors"
-                        >
-                          {article.title}
-                        </a>
-                      </h4>
-                      
-                      {article.aiSummary && (
-                        <div className="text-sm text-gray-700 mb-3">
-                          <div className="prose prose-sm max-w-none">
-                            <ReactMarkdown>{article.aiSummary}</ReactMarkdown>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date(article.publishTime).toLocaleString('zh-CN')}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                          {article.source}
-                        </span>
-                        <a 
-                          href={article.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 transition-colors"
-                        >
-                          查看原文
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* 数据来源信息 */}
-          <div className="px-6 pb-6">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <span>📊</span>
-                数据来源
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {report.content.metadata.sources.map((source: string, sourceIndex: number) => (
-                  <span key={sourceIndex} className="px-2 py-1 bg-white rounded text-xs text-gray-600 border">
-                    {source}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* 底部信息 */}
-      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-lg">
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>基于 {report.content.articles.length} 条资讯生成</span>
-          <span>由 AI 自动生成和整理</span>
-        </div>
-      </div>
-    </div>
-  );
-});
-
-DailyReportCard.displayName = 'DailyReportCard';
 
 // react-window 虚拟列表项组件
 interface VirtualListItemProps extends ListChildComponentProps {
@@ -206,11 +19,12 @@ interface VirtualListItemProps extends ListChildComponentProps {
     toggleCardExpansion: (reportId: string) => void;
     formatDate: (dateString: string) => string;
     isMobile: boolean;
+    onShareReport: (report: Report) => void;
   };
 }
 
 const VirtualListItem: React.FC<VirtualListItemProps> = ({ index, style, data }) => {
-  const { reports, expandedCards, toggleCardExpansion, formatDate, isMobile } = data;
+  const { reports, expandedCards, toggleCardExpansion, formatDate, isMobile, onShareReport } = data;
   const report = reports[index];
   
   if (!report) return null;
@@ -223,74 +37,13 @@ const VirtualListItem: React.FC<VirtualListItemProps> = ({ index, style, data })
         onToggleExpansion={toggleCardExpansion}
         formatDate={formatDate}
         isMobile={isMobile}
+        onShare={onShareReport}
       />
     </div>
   );
 };
 
 VirtualListItem.displayName = 'VirtualListItem';
-
-// 错误边界组件
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-}
-
-class DailyReportErrorBoundary extends React.Component<
-  React.PropsWithChildren, 
-  ErrorBoundaryState
-> {
-  constructor(props: React.PropsWithChildren) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('DailyReport Error Boundary caught an error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-sm border p-6 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">⚠️</span>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">页面发生错误</h3>
-            <p className="text-gray-600 mb-4">
-              很抱歉，日报页面遇到了意外错误。请刷新页面重试。
-            </p>
-            <div className="space-y-3">
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                刷新页面
-              </button>
-              {this.state.error && (
-                <details className="text-left">
-                  <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-                    查看错误详情
-                  </summary>
-                  <div className="mt-2 p-3 bg-gray-50 rounded text-xs text-gray-600 overflow-auto max-h-32">
-                    <pre>{this.state.error.toString()}</pre>
-                  </div>
-                </details>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 interface DailyReportRef {
   handleSearch: (query: string) => void;
@@ -299,7 +52,7 @@ interface DailyReportRef {
   scrollToToday: () => void;
 }
 
-const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
+const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
   // 状态变量
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -318,6 +71,12 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
+  // 分享相关状态
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [shareReport, setShareReport] = useState<Report | null>(null);
+  const [shareUrl, setShareUrl] = useState<string>('');
+  const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  
   // react-window 虚拟滚动状态
   const [enableVirtualScroll, setEnableVirtualScroll] = useState<boolean>(false);
   const [listHeight, setListHeight] = useState<number>(600);
@@ -332,7 +91,6 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
   const pageSize = 10;
   const ITEM_HEIGHT = isMobile ? 120 : 150; // 每个日报卡片的估计高度
   const VIRTUAL_SCROLL_THRESHOLD = 50; // 超过50条数据启用虚拟滚动
-  const BUFFER_SIZE = 5; // 上下缓冲区大小
   
   // 移动端检测
   useEffect(() => {
@@ -373,6 +131,42 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
       console.log(`滑动切换到: ${currentDate.toDateString()}`);
     }
   }, [touchStart, touchEnd]);
+
+  // 分享日报功能
+  const handleShareReport = useCallback((report: Report) => {
+    setShareReport(report);
+    
+    // 生成分享链接
+    const shareUrl = `${window.location.origin}/daily-report/${report.date}`;
+    setShareUrl(shareUrl);
+    
+    // 尝试使用 Web Share API
+    if (navigator.share) {
+      navigator.share({
+        title: `AI日报 - ${new Date(report.date).toLocaleDateString('zh-CN')}`,
+        text: `查看 ${new Date(report.date).toLocaleDateString('zh-CN')} 的AI日报摘要`,
+        url: shareUrl
+      }).catch(err => {
+        console.log('分享失败:', err);
+        setShowShareModal(true);
+      });
+    } else {
+      // 如果不支持 Web Share API，显示自定义分享模态框
+      setShowShareModal(true);
+    }
+  }, []);
+
+  // 复制分享链接
+  const copyShareLink = useCallback(() => {
+    if (!shareUrl) return;
+    
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }).catch(err => {
+      console.error('复制失败:', err);
+    });
+  }, [shareUrl]);
 
   // react-window 动态高度计算
   const getItemHeight = useCallback((index: number): number => {
@@ -424,7 +218,12 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
       }
       return newSet;
     });
-  }, []);
+    
+    // 如果使用虚拟滚动，需要重新计算高度
+    if (enableVirtualScroll && listRef.current) {
+      listRef.current.resetAfterIndex(0);
+    }
+  }, [enableVirtualScroll]);
 
   // 获取日报数据（支持分页、搜索和缓存）
   const fetchReports = useCallback(async (page: number = 0, reset: boolean = false, filter?: QuickFilter, search?: string) => {
@@ -545,7 +344,7 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [pageSize, cache]);
+  }, [pageSize, cache, reports.length]);
 
   // 加载更多数据
   const loadMore = useCallback(() => {
@@ -686,15 +485,6 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
     });
   };
 
-  // 获取来源图标
-  const getSourceIcon = (sourceName: string) => {
-    const name = sourceName.toLowerCase();
-    if (name.includes('arxiv')) return '📚';
-    if (name.includes('github')) return '🐙';
-    if (name.includes('rss')) return '📰';
-    return '🔗';
-  };
-
   return (
     <div className="bg-gray-50">
       {/* 主内容区域 - 支持触摸手势 */}
@@ -767,7 +557,8 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
                     expandedCards,
                     toggleCardExpansion,
                     formatDate,
-                    isMobile
+                    isMobile,
+                    onShareReport: handleShareReport
                   }}
                   overscanCount={5}
                   className="react-window-list"
@@ -793,6 +584,7 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
                     onToggleExpansion={toggleCardExpansion}
                     formatDate={formatDate}
                     isMobile={isMobile}
+                    onShare={handleShareReport}
                   />
                 </div>
               ))
@@ -842,6 +634,7 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
           </div>
         )}
       </div>
+
       {/* 回到顶部按钮 */}
       {showScrollToTop && (
         <button
@@ -852,6 +645,18 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
           <Home className="h-6 w-6" />
         </button>
       )}
+
+      {/* 分享模态框 */}
+      {shareReport && (
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          url={shareUrl}
+          title={`分享 ${formatDate(shareReport.date)} 的日报`}
+          copySuccess={copySuccess}
+          onCopy={copyShareLink}
+        />
+      )}
     </div>
   );
 });
@@ -859,11 +664,11 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
 DailyReport.displayName = 'DailyReport';
 
 // 用错误边界包装的日报组件
-const DailyReportWithErrorBoundary = forwardRef<DailyReportRef>((props, ref) => {
+const DailyReportWithErrorBoundary = forwardRef<DailyReportRef, object>((props, ref) => {
   return (
-    <DailyReportErrorBoundary>
+    <ErrorBoundary>
       <DailyReport ref={ref} />
-    </DailyReportErrorBoundary>
+    </ErrorBoundary>
   );
 });
 
