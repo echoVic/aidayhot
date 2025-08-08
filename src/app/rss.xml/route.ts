@@ -51,21 +51,23 @@ interface DailyReportRow {
 }
 
 export async function GET(request: NextRequest): Promise<Response> {
+  const startTime = Date.now();
+  
   const baseUrl = getBaseUrl(request);
   const url = new URL(request.url);
   const limitParam = url.searchParams.get('limit');
-  let limit = 30;
+  let limit = 15; // 默认返回最近15期日报，更符合RSS最佳实践
   if (limitParam) {
     const n = parseInt(limitParam, 10);
     if (!Number.isNaN(n)) {
-      limit = Math.min(Math.max(n, 1), 200);
+      limit = Math.min(Math.max(n, 1), 50); // 最大限制降低到50，避免过大查询
     }
   }
 
-  // 查询最近 30 期日报
+  // 查询最近的日报，只选择RSS所需的字段
   const { data, error } = await supabase
     .from('daily_reports')
-    .select('*')
+    .select('id, date, content, summary, created_at')
     .order('date', { ascending: false })
     .limit(limit);
 
@@ -83,6 +85,21 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const reports: DailyReportRow[] = (data as unknown as DailyReportRow[]) || [];
   const now = new Date();
+  
+  // 如果没有数据，返回空的 RSS feed
+  if (reports.length === 0) {
+    const emptyXml = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<rss version="2.0"><channel>` +
+      `<title><![CDATA[AI每日热点 - 每日AI日报]]></title>` +
+      `<description><![CDATA[AI 自动汇总的每日日报，覆盖研究、开源、行业与技术动态。]]></description>` +
+      `<link>${escapeXml(baseUrl)}</link>` +
+      `<lastBuildDate>${now.toUTCString()}</lastBuildDate>` +
+      `</channel></rss>`;
+    return new Response(emptyXml, {
+      status: 200,
+      headers: { 'Content-Type': 'application/rss+xml; charset=utf-8' }
+    });
+  }
 
   const channelTitle = 'AI每日热点 - 每日AI日报';
   const channelDescription = 'AI 自动汇总的每日日报，覆盖研究、开源、行业与技术动态。';
@@ -103,7 +120,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     const guid = `daily-${reportDate}`;
     const sources = (report.content?.metadata?.sources || []).join('、');
 
-    // 组装富文本内容（content:encoded）
+    // 组装富文本内容（content:encoded）- 只显示前5篇文章，减少RSS条目大小
     const articlesHtml = (report.content?.articles || [])
       .slice(0, 10)
       .map((a, idx) => {
@@ -157,12 +174,18 @@ export async function GET(request: NextRequest): Promise<Response> {
 `</channel>\n` +
 `</rss>`;
 
+  const processingTime = Date.now() - startTime;
+  
   return new Response(xml, {
     status: 200,
     headers: {
       'Content-Type': 'application/rss+xml; charset=utf-8',
-      // CDN 缓存 10 分钟，并允许回源复用一天
-      'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=86400'
+      // CDN 缓存 30 分钟，浏览器缓存 15 分钟，并允许回源复用一天
+      'Cache-Control': 'public, max-age=900, s-maxage=1800, stale-while-revalidate=86400',
+      // 性能监控
+      'X-RSS-Items': reports.length.toString(),
+      'X-Processing-Time': `${processingTime}ms`,
+      'X-Generated-At': now.toISOString()
     }
   });
 }

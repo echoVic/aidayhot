@@ -1,8 +1,9 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { useMemoizedFn } from 'ahooks';
 import { CalendarDays, Home } from 'lucide-react';
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
 import DailyReportCard, { NewsItem, Report } from './DailyReportCard';
 import ErrorBoundary from './ErrorBoundary';
@@ -105,16 +106,16 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
   }, []);
 
   // 触摸手势处理
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  const handleTouchStart = useMemoizedFn((e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
-  }, []);
+  });
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  const handleTouchMove = useMemoizedFn((e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
-  }, []);
+  });
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useMemoizedFn(() => {
     if (!touchStart || !touchEnd) return;
     
     const distance = touchStart - touchEnd;
@@ -130,10 +131,10 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
       // 这里可以添加日期切换逻辑
       console.log(`滑动切换到: ${currentDate.toDateString()}`);
     }
-  }, [touchStart, touchEnd]);
+  });
 
   // 分享日报功能
-  const handleShareReport = useCallback((report: Report) => {
+  const handleShareReport = useMemoizedFn((report: Report) => {
     setShareReport(report);
     
     // 生成分享链接
@@ -154,10 +155,10 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
       // 如果不支持 Web Share API，显示自定义分享模态框
       setShowShareModal(true);
     }
-  }, []);
+  });
 
   // 复制分享链接
-  const copyShareLink = useCallback(() => {
+  const copyShareLink = useMemoizedFn(() => {
     if (!shareUrl) return;
     
     navigator.clipboard.writeText(shareUrl).then(() => {
@@ -166,10 +167,10 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
     }).catch(err => {
       console.error('复制失败:', err);
     });
-  }, [shareUrl]);
+  });
 
   // react-window 动态高度计算
-  const getItemHeight = useCallback((index: number): number => {
+  const getItemHeight = useMemoizedFn((index: number): number => {
     const report = reports[index];
     if (!report) return ITEM_HEIGHT;
     
@@ -183,32 +184,32 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
     const expandedHeight = baseHeight * 3; // 展开时高度增加3倍
     
     return isExpanded ? expandedHeight : baseHeight;
-  }, [reports, expandedCards, itemHeights, ITEM_HEIGHT]);
+  });
 
   // 缓存项目高度
-  const setItemHeight = useCallback((index: number, height: number) => {
+  const setItemHeight = useMemoizedFn((index: number, height: number) => {
     setItemHeights(prev => {
       const newMap = new Map(prev);
       newMap.set(index, height);
       return newMap;
     });
-  }, []);
+  });
 
   // 容器高度计算
-  const updateListHeight = useCallback(() => {
+  const updateListHeight = useMemoizedFn(() => {
     if (scrollRef.current) {
       const height = scrollRef.current.clientHeight - 160; // 减去顶部导航高度
       setListHeight(Math.max(400, height));
     }
-  }, []);
+  });
 
   // 滚动到顶部功能
-  const scrollToTop = useCallback(() => {
+  const scrollToTop = useMemoizedFn(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  });
 
   // 卡片展开/收起切换
-  const toggleCardExpansion = useCallback((reportId: string) => {
+  const toggleCardExpansion = useMemoizedFn((reportId: string) => {
     setExpandedCards(prev => {
       const newSet = new Set(prev);
       if (newSet.has(reportId)) {
@@ -223,10 +224,10 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
     if (enableVirtualScroll && listRef.current) {
       listRef.current.resetAfterIndex(0);
     }
-  }, [enableVirtualScroll]);
+  });
 
   // 获取日报数据（支持分页、搜索和缓存）
-  const fetchReports = useCallback(async (page: number = 0, reset: boolean = false, filter?: QuickFilter, search?: string) => {
+  const fetchReports = useMemoizedFn(async (page: number = 0, reset: boolean = false, filter?: QuickFilter, search?: string) => {
     try {
       // 生成缓存键
       const cacheKey = `${filter || 'all'}-${search || ''}-${page.toString()}`;
@@ -344,40 +345,40 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [pageSize, cache, reports.length]);
+  }); // useMemoizedFn 不需要依赖数组
 
   // 加载更多数据
-  const loadMore = useCallback(() => {
+  const loadMore = useMemoizedFn(() => {
     if (!loadingMore && hasMore) {
       fetchReports(currentPage + 1, false, quickFilter, searchQuery);
     }
-  }, [fetchReports, loadingMore, hasMore, currentPage, quickFilter, searchQuery]);
+  });
 
   // 重置和刷新数据
-  const refreshData = useCallback((filter?: QuickFilter, search?: string) => {
+  const refreshData = useMemoizedFn((filter?: QuickFilter, search?: string) => {
     setReports([]);
     setExpandedCards(new Set());
     fetchReports(0, true, filter || quickFilter, search || searchQuery);
-  }, [fetchReports, quickFilter, searchQuery]);
+  });
 
   // 搜索处理
-  const handleSearch = useCallback((query: string) => {
+  const handleSearch = useMemoizedFn((query: string) => {
     setSearchQuery(query);
     refreshData(quickFilter, query);
-  }, [refreshData, quickFilter]);
+  });
 
   // 快速过滤处理
-  const handleQuickFilter = useCallback((filter: QuickFilter) => {
+  const handleQuickFilter = useMemoizedFn((filter: QuickFilter) => {
     setQuickFilter(filter);
     refreshData(filter, searchQuery);
-  }, [refreshData, searchQuery]);
+  });
 
   // 回到今天
-  const scrollToToday = useCallback(() => {
+  const scrollToToday = useMemoizedFn(() => {
     setQuickFilter('today');
     refreshData('today', searchQuery);
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [refreshData, searchQuery]);
+  });
 
   // 键盘导航
   useEffect(() => {
@@ -415,14 +416,14 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
     
     // 更新容器高度
     updateListHeight();
-  }, [reports.length, VIRTUAL_SCROLL_THRESHOLD, updateListHeight]);
+  }, [reports.length, VIRTUAL_SCROLL_THRESHOLD]);
 
   // 窗口尺寸变化监听
   useEffect(() => {
     updateListHeight();
     window.addEventListener('resize', updateListHeight);
     return () => window.removeEventListener('resize', updateListHeight);
-  }, [updateListHeight]);
+  }, []);
 
   // 滚动监听（显示/隐藏回到顶部按钮）
   useEffect(() => {
@@ -431,7 +432,7 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
       setShowScrollToTop(scrollTop > 400);
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', handleScroll, { passive: true }); 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -450,7 +451,7 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
     observerRef.current = observer;
     
     return () => observer.disconnect();
-  }, [loadMore, hasMore, loadingMore]);
+  }, [hasMore, loadingMore]);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -472,7 +473,7 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
   // 初始化数据加载
   useEffect(() => {
     fetchReports(0, true, 'all', '');
-  }, [fetchReports]); // 使用固定参数避免依赖循环
+  }, []); // 只在组件挂载时执行一次
 
   // 格式化日期显示
   const formatDate = (dateString: string) => {
@@ -638,7 +639,7 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
       {/* 回到顶部按钮 */}
       {showScrollToTop && (
         <button
-          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="fixed bottom-8 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center justify-center z-40"
           aria-label="回到顶部"
         >
