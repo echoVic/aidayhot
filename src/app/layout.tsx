@@ -55,6 +55,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         ></script>
         <meta name="google-adsense-account" content="ca-pub-9352722121175568" />
+        <link rel="alternate" type="application/rss+xml" title="AI每日热点 RSS" href="/rss.xml" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

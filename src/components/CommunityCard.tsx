@@ -4,6 +4,7 @@ import { useMemoizedFn } from 'ahooks';
 import { useState } from 'react';
 import type { Article } from '../lib/supabase';
 import { formatDistanceToNow } from '../lib/utils';
+import { Play, Pause, Eye, Heart, Bookmark, Share2 } from 'lucide-react';
 
 interface CommunityCardProps {
   article: Article;
@@ -154,13 +155,9 @@ export default function CommunityCard({ article, layout, onClick }: CommunityCar
                 }`}
               >
                 {isPlaying ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                  </svg>
+                  <Pause className="w-5 h-5" />
                 ) : (
-                  <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
+                  <Play className="w-5 h-5 ml-0.5" />
                 )}
               </button>
               <div className="text-sm">
@@ -252,16 +249,11 @@ export default function CommunityCard({ article, layout, onClick }: CommunityCar
       <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
         <div className="flex items-center space-x-4">
           <span className="flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
+            <Eye className="w-4 h-4 mr-1" />
             {article.views || 0}
           </span>
           <span className="flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
+            <Heart className="w-4 h-4 mr-1" />
             {article.likes || 0}
           </span>
         </div>
@@ -276,9 +268,7 @@ export default function CommunityCard({ article, layout, onClick }: CommunityCar
             className="p-1 rounded hover:bg-gray-100 transition-colors"
             title="收藏"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
+            <Bookmark className="w-4 h-4" />
           </button>
           <button
             onClick={(e) => {
@@ -288,9 +278,7 @@ export default function CommunityCard({ article, layout, onClick }: CommunityCar
             className="p-1 rounded hover:bg-gray-100 transition-colors"
             title="分享"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-            </svg>
+            <Share2 className="w-4 h-4" />
           </button>
         </div>
       </div>

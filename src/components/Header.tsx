@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { Search, LayoutGrid, List, CalendarDays, Rss } from 'lucide-react';
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -83,9 +84,7 @@ export default function Header({
                 className="w-48 pl-10 pr-4 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm hidden md:block"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none hidden md:flex">
-                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <Search className="h-4 w-4 text-gray-400" />
               </div>
             </div>
 
@@ -96,13 +95,11 @@ export default function Header({
                 className="p-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                 title={viewMode === 'timeline' ? '切换到网格视图' : '切换到时间线视图'}
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {viewMode === 'timeline' ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                  )}
-                </svg>
+                {viewMode === 'timeline' ? (
+                  <LayoutGrid className="h-4 w-4" />
+                ) : (
+                  <List className="h-4 w-4" />
+                )}
               </button>
               
               <button
@@ -110,10 +107,19 @@ export default function Header({
                 className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors"
                 title="回到今天"
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
+                <CalendarDays className="h-4 w-4" />
               </button>
+
+              {/* RSS 订阅按钮 */}
+              <a
+                href="/rss.xml"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-md transition-colors"
+                title="订阅 RSS - AI 每日日报"
+              >
+                <Rss className="h-4 w-4" />
+              </a>
             </div>
 
             {/* 移动端搜索按钮 */}
@@ -121,9 +127,7 @@ export default function Header({
               className="md:hidden p-2 rounded-md text-gray-700 hover:text-blue-600"
               onClick={() => setIsSearchOpen(!isSearchOpen)}
             >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <Search className="h-6 w-6" />
             </button>
 
             {/* 移动端不需要重复显示，已在Logo中显示 */}
@@ -144,18 +148,14 @@ export default function Header({
                 autoFocus
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <Search className="h-5 w-5 text-gray-400" />
               </div>
               {searchQuery && (
                 <button
                   onClick={handleSearch}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-blue-500 hover:text-blue-600"
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                  <Search className="h-4 w-4" />
                 </button>
               )}
             </div>

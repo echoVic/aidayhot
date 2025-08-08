@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, u
 import { VariableSizeList, ListChildComponentProps } from 'react-window';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/lib/supabase';
+import { CalendarDays, Home, Clock, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
 
 // 类型定义
 interface NewsItem {
@@ -31,61 +32,6 @@ interface Report {
 
 type ViewMode = 'timeline' | 'grid';
 type QuickFilter = 'today' | 'week' | 'month' | 'all';
-
-// 图标组件
-const CalendarIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-);
-
-const HomeIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m0 0V11a1 1 0 011-1h2a1 1 0 011 1v10m0 0h3a1 1 0 001-1V10M9 21h6" />
-  </svg>
-);
-
-const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-);
-
-const ClockIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-
-const ExternalLinkIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-  </svg>
-);
-
-const ChevronDownIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-);
-
-const ChevronRightIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-  </svg>
-);
-
-const GridIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-  </svg>
-);
-
-const TimelineIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-  </svg>
-);
 
 // React.memo 优化的日报卡片组件
 interface DailyReportCardProps {
@@ -116,7 +62,7 @@ const DailyReportCard = React.memo<DailyReportCardProps>(({
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <CalendarIcon className="h-5 w-5 text-blue-600" />
+                <CalendarDays className="h-5 w-5 text-blue-600" />
               </div>
             </div>
             <div>
@@ -136,9 +82,9 @@ const DailyReportCard = React.memo<DailyReportCardProps>(({
           {/* 展开/收起图标 */}
           <div className="flex-shrink-0">
             {isExpanded ? (
-              <ChevronDownIcon className="h-6 w-6 text-gray-400" />
+              <ChevronDown className="h-6 w-6 text-gray-400" />
             ) : (
-              <ChevronRightIcon className="h-6 w-6 text-gray-400" />
+              <ChevronRight className="h-6 w-6 text-gray-400" />
             )}
           </div>
         </div>
@@ -196,7 +142,7 @@ const DailyReportCard = React.memo<DailyReportCardProps>(({
                       
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
-                          <ClockIcon className="h-3 w-3" />
+                          <Clock className="h-3 w-3" />
                           {new Date(article.publishTime).toLocaleString('zh-CN')}
                         </span>
                         <span className="flex items-center gap-1">
@@ -210,7 +156,7 @@ const DailyReportCard = React.memo<DailyReportCardProps>(({
                           className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 transition-colors"
                         >
                           查看原文
-                          <ExternalLinkIcon className="h-3 w-3" />
+                          <ExternalLink className="h-3 w-3" />
                         </a>
                       </div>
                     </div>
@@ -890,7 +836,7 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
         {/* 无数据状态 */}
         {!loading && !error && reports.length === 0 && (
           <div className="text-center py-12">
-            <CalendarIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <CalendarDays className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-600 mb-2">暂无日报数据</h3>
             <p className="text-gray-500">请稍后再试或调整搜索条件</p>
           </div>
@@ -903,7 +849,7 @@ const DailyReport = forwardRef<DailyReportRef>((props, ref) => {
           className="fixed bottom-8 right-8 w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 flex items-center justify-center z-40"
           aria-label="回到顶部"
         >
-          <HomeIcon className="h-6 w-6" />
+          <Home className="h-6 w-6" />
         </button>
       )}
     </div>
