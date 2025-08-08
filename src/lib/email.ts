@@ -84,6 +84,12 @@ const getDailyReportEmailTemplate = (report: any, unsubscribeUrl: string) => {
     });
   };
 
+  // 邮件中仅展示前10条，其余通过站点查看
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.dayhot.top';
+  const totalArticles = Array.isArray(report?.content?.articles) ? report.content.articles.length : 0;
+  const remainingCount = Math.max(0, totalArticles - 10);
+  const moreUrl = `${baseUrl}/?date=${encodeURIComponent(report.date)}`;
+
   return {
     subject: `AI 日报 - ${formatDate(report.date)}`,
     html: `
@@ -139,6 +145,13 @@ const getDailyReportEmailTemplate = (report: any, unsubscribeUrl: string) => {
             `).join('')}
           </div>
           
+          ${remainingCount > 0 ? `
+          <div class="more" style="text-align: center; margin: 16px 0 8px;">
+            <a href="${moreUrl}" target="_blank" class="button">查看更多（剩余 ${remainingCount} 条）</a>
+            <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">在网站上查看全部 ${totalArticles} 条</div>
+          </div>
+          ` : ''}
+
           <div class="footer">
             <p>感谢您订阅 AI 日报！</p>
             <div class="unsubscribe">
@@ -156,12 +169,13 @@ const getDailyReportEmailTemplate = (report: any, unsubscribeUrl: string) => {
       ${report.summary}
       
       📰 今日资讯
-      ${report.content.articles.slice(0, 10).map((article: any, index: number) => 
-        `${index + 1}. ${article.title}\n   ${article.url}\n   ${article.source} | ${new Date(article.publishTime).toLocaleString('zh-CN')}\n   ${article.aiSummary || ''}\n`
+       ${report.content.articles.slice(0, 10).map((article: any, index: number) => 
+         `${index + 1}. ${article.title}\n   ${article.url}\n   ${article.source} | ${new Date(article.publishTime).toLocaleString('zh-CN')}\n   ${article.aiSummary || ''}\n`
       ).join('\n')}
-      
-      取消订阅: ${unsubscribeUrl}
-    `
+      ${remainingCount > 0 ? `\n查看更多（剩余 ${remainingCount} 条）: ${moreUrl}\n` : ''}
+       
+       取消订阅: ${unsubscribeUrl}
+     `
   };
 };
 
