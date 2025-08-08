@@ -167,7 +167,8 @@ const getDailyReportEmailTemplate = (report: any, unsubscribeUrl: string) => {
 
 // 发送验证邮件
 export async function sendVerificationEmail(email: string, token: string) {
-  const verificationUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/verify?token=${token}`;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.dayhot.top';
+  const verificationUrl = `${baseUrl}/api/verify?token=${token}`;
   const template = getVerificationEmailTemplate(verificationUrl);
   
   try {
@@ -196,7 +197,8 @@ export async function sendDailyReportEmail(
   unsubscribeToken: string,
   subscriberId?: string
 ) {
-  const unsubscribeUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/subscribe?email=${encodeURIComponent(email)}&token=${unsubscribeToken}`;
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.dayhot.top';
+  const unsubscribeUrl = `${baseUrl}/api/subscribe?email=${encodeURIComponent(email)}&token=${unsubscribeToken}`;
   const template = getDailyReportEmailTemplate(report, unsubscribeUrl);
   
   try {
