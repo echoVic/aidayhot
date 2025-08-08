@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import Header from '../components/Header';
 import DailyReport from '../components/DailyReport';
+import SubscriptionSidebar from '../components/SubscriptionSidebar';
 
 // DailyReport组件的ref接口
 interface DailyReportRef {
@@ -64,8 +65,16 @@ export default function Home() {
           viewMode={viewMode}
         />
 
-        {/* 主要内容 - 只显示AI日报 */}
-        <DailyReport ref={dailyReportRef} />
+        {/* 主要内容区域 */}
+        <div className="flex">
+          {/* AI日报主内容 */}
+          <div className="flex-1">
+            <DailyReport ref={dailyReportRef} />
+          </div>
+          
+          {/* 订阅侧边栏 */}
+          <SubscriptionSidebar />
+        </div>
       </div>
     </ErrorBoundary>
   );
