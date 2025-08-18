@@ -1,6 +1,6 @@
 'use client';
 
-import { toPng } from 'html-to-image';
+import { toPng, toJpeg } from 'html-to-image';
 import { FileText, Image, Link2, MessageCircle, Twitter } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import {
@@ -23,6 +23,7 @@ interface ShareDailyReportProps {
 const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onClose }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [imageFormat, setImageFormat] = useState<'png' | 'jpeg'>('png');
   const cardRef = useRef<HTMLDivElement>(null);
 
   // 重置状态当弹窗关闭时
@@ -56,12 +57,15 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
       // 等待内容完全渲染
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const dataUrl = await toPng(cardRef.current, {
+      const generateFunction = imageFormat === 'png' ? toPng : toJpeg;
+      const fileExtension = imageFormat === 'png' ? 'png' : 'jpg';
+      
+      const dataUrl = await generateFunction(cardRef.current, {
         quality: 1.0,
-        pixelRatio: 3,
+        pixelRatio: 4, // 提高像素密度
         backgroundColor: '#ffffff',
-        // 明确设置宽度确保完整捕获
-        width: 900,
+        // 使用实际元素尺寸，确保响应式设计正确渲染
+        width: cardRef.current.offsetWidth,
         height: cardRef.current.scrollHeight,
         fetchRequestInit: {
           cache: 'no-cache',
@@ -69,8 +73,12 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
         skipFonts: false,
         style: {
           overflow: 'visible',
-          boxSizing: 'border-box'
-        },
+          boxSizing: 'border-box',
+          // 添加文字渲染优化
+          textRendering: 'optimizeLegibility',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale'
+        } as any,
         // 优化的过滤函数
         filter: (node) => {
           if (node.nodeType === Node.TEXT_NODE) return true;
@@ -81,7 +89,7 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
       
       // 下载图片
       const link = document.createElement('a');
-      link.download = `AI日报-${report.date}.png`;
+      link.download = `AI日报-${report.date}.${fileExtension}`;
       link.href = dataUrl;
       link.click();
       
@@ -110,6 +118,44 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
       maxWidth="max-w-4xl"
     >
       <div className="space-y-8">
+        {/* 图片格式选择 */}
+        <div className="mb-6">
+          <div className="text-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">图片格式选择</h3>
+            <p className="text-sm text-gray-500">选择适合的图片格式以获得最佳效果</p>
+          </div>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => setImageFormat('png')}
+              className={`px-4 py-2 rounded-lg border transition-all duration-200 ${
+                imageFormat === 'png'
+                  ? 'bg-blue-500 text-white border-blue-500 shadow-md'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+              }`}
+            >
+              PNG (推荐)
+            </button>
+            <button
+              onClick={() => setImageFormat('jpeg')}
+              className={`px-4 py-2 rounded-lg border transition-all duration-200 ${
+                imageFormat === 'jpeg'
+                  ? 'bg-blue-500 text-white border-blue-500 shadow-md'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+              }`}
+            >
+              JPEG
+            </button>
+          </div>
+          <div className="text-center mt-2">
+            <p className="text-xs text-gray-500">
+              {imageFormat === 'png' 
+                ? 'PNG格式：无损压缩，文字更清晰，适合公众号分享' 
+                : 'JPEG格式：文件更小，加载更快，适合网络分享'
+              }
+            </p>
+          </div>
+        </div>
+
         {/* 主要分享选项 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* 生成图片 */}
@@ -127,7 +173,7 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
                   {isGenerating ? '生成中...' : '生成图片'}
                 </div>
                 <div className="text-[10px] text-gray-600 leading-tight mt-0.5">
-                  高清 PNG 格式
+                  高清 {imageFormat.toUpperCase()} 格式
                 </div>
               </div>
             </div>
@@ -212,25 +258,28 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
             <h3 className="text-base font-medium text-gray-900 mb-1">预览效果</h3>
             <p className="text-xs text-gray-500">生成图片时的预览效果（显示完整日报内容）</p>
           </div>
-          <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
-            <div className="flex justify-center w-full">
+          <div>
+            <div className="flex justify-center w-full px-4">
               <div 
                 ref={cardRef}
                 style={{ 
-                  width: '900px',
-                  minWidth: '900px',
-                  maxWidth: '900px',
+                  width: '100%',
+                  maxWidth: '1200px',
+                  minWidth: '320px',
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                  fontSize: '12px',
-                  lineHeight: '1.3',
+                  fontSize: 'clamp(12px, 1.2vw, 16px)', // 响应式字体大小
+                  lineHeight: '1.4',
                   boxSizing: 'border-box',
                   backgroundColor: '#ffffff',
                   borderRadius: '16px',
                   overflow: 'hidden',
                   boxShadow: '0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04)',
                   border: '1px solid rgba(0, 0, 0, 0.06)',
-                  flexShrink: 0
-                }}
+                  // 添加文字渲染优化
+                  textRendering: 'optimizeLegibility',
+                  WebkitFontSmoothing: 'antialiased',
+                  MozOsxFontSmoothing: 'grayscale'
+                } as any}
               >
             {/* 卡片头部 */}
             <div style={{
@@ -242,14 +291,14 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
               boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
             }}>
               <h1 style={{
-                fontSize: '28px',
+                fontSize: 'clamp(24px, 3vw, 36px)', // 响应式标题大小
                 fontWeight: '600',
-                margin: '0 0 16px 0',
+                margin: '0 0 clamp(12px, 1.5vw, 20px) 0', // 响应式间距
                 letterSpacing: '-0.5px',
                 textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
               }}>AI 每日热点</h1>
               <p style={{
-                fontSize: '13px',
+                fontSize: 'clamp(12px, 1.4vw, 16px)', // 响应式日期大小
                 opacity: '0.85',
                 margin: '0',
                 fontWeight: '500',
@@ -259,20 +308,20 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
 
             {/* 卡片内容 */}
             <div style={{ 
-              padding: '24px',
+              padding: 'clamp(16px, 2.5vw, 32px)', // 响应式内边距
               boxSizing: 'border-box',
               width: '100%'
             }}>
               {/* 总结部分 */}
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: 'clamp(16px, 2vw, 24px)' }}> {/* 响应式间距 */}
                 <h2 style={{
-                  fontSize: '15px',
+                  fontSize: 'clamp(16px, 1.8vw, 20px)', // 响应式标题大小
                   fontWeight: '600',
                   color: '#1f2937',
-                  margin: '0 0 8px 0',
+                  margin: '0 0 clamp(8px, 1vw, 12px) 0', // 响应式间距
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: 'clamp(6px, 0.8vw, 8px)', // 响应式间距
                   width: '100%',
                   boxSizing: 'border-box',
                   letterSpacing: '-0.2px'
@@ -281,9 +330,9 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
                   今日总结
                 </h2>
                 <p style={{
-                  fontSize: '12px',
+                  fontSize: 'clamp(12px, 1.4vw, 16px)', // 响应式正文大小
                   color: '#6b7280',
-                  lineHeight: '1.5',
+                  lineHeight: '1.6',
                   margin: '0',
                   wordWrap: 'break-word',
                   width: '100%',
@@ -294,32 +343,33 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
               {/* 统计信息 */}
               <div style={{
                 display: 'flex',
-                gap: '16px',
-                marginBottom: '16px',
-                justifyContent: 'center'
+                gap: 'clamp(12px, 1.5vw, 20px)', // 响应式间距
+                marginBottom: 'clamp(12px, 1.5vw, 20px)', // 响应式间距
+                justifyContent: 'center',
+                flexWrap: 'wrap' // 小屏幕时允许换行
               }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
-                    fontSize: '20px',
+                    fontSize: 'clamp(20px, 2.5vw, 28px)', // 响应式数字大小
                     fontWeight: '600',
                     color: '#3b82f6',
                     letterSpacing: '-0.3px'
                   }}>{report.content.articles.length}</div>
                   <div style={{
-                    fontSize: '11px',
+                    fontSize: 'clamp(11px, 1.2vw, 14px)', // 响应式描述文字大小
                     color: '#6b7280',
                     fontWeight: '500'
                   }}>今日资讯</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
-                    fontSize: '20px',
+                    fontSize: 'clamp(20px, 2.5vw, 28px)', // 响应式数字大小
                     fontWeight: '600',
                     color: '#10b981',
                     letterSpacing: '-0.3px'
                   }}>{report.content.metadata.sources.length}</div>
                   <div style={{
-                    fontSize: '11px',
+                    fontSize: 'clamp(11px, 1.2vw, 14px)', // 响应式描述文字大小
                     color: '#6b7280',
                     fontWeight: '500'
                   }}>数据来源</div>
@@ -329,13 +379,13 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
               {/* 所有文章列表 */}
               <div>
                 <h3 style={{
-                  fontSize: '15px',
+                  fontSize: 'clamp(16px, 1.8vw, 20px)', // 响应式标题大小
                   fontWeight: '600',
                   color: '#1f2937',
-                  margin: '0 0 12px 0',
+                  margin: '0 0 clamp(12px, 1.5vw, 16px) 0', // 响应式间距
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: 'clamp(6px, 0.8vw, 8px)', // 响应式间距
                   letterSpacing: '-0.2px'
                 }}>
                   <span>📰</span>
@@ -343,58 +393,58 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
                 </h3>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', // 响应式网格
+                  gap: 'clamp(12px, 1.5vw, 16px)', // 响应式间距
                   width: '100%'
                 }}>
                   {report.content.articles.map((article, index) => (
                     <div key={index} style={{
-                      padding: '8px',
+                      padding: 'clamp(8px, 1vw, 12px)', // 响应式内边距
                       backgroundColor: '#f8fafc',
-                      borderRadius: '6px',
+                      borderRadius: 'clamp(6px, 0.8vw, 8px)', // 响应式圆角
                       border: '1px solid #e2e8f0',
                       boxSizing: 'border-box'
                     }}>
                       <div style={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: '6px',
-                        marginBottom: '4px'
+                        gap: 'clamp(6px, 0.8vw, 8px)', // 响应式间距
+                        marginBottom: 'clamp(4px, 0.6vw, 6px)' // 响应式间距
                       }}>
                         <div style={{
-                          width: '16px',
-                          height: '16px',
+                          width: 'clamp(16px, 1.5vw, 18px)', // 响应式序号大小
+                          height: 'clamp(16px, 1.5vw, 18px)', // 响应式序号大小
                           background: '#3b82f6',
                           color: 'white',
                           borderRadius: '50%',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '9px',
+                          fontSize: 'clamp(9px, 1vw, 11px)', // 响应式序号字体
                           fontWeight: 'bold',
                           flexShrink: 0
                         }}>{index + 1}</div>
                         <h4 style={{
-                          fontSize: '11px',
-                          fontWeight: '500',
+                          fontSize: 'clamp(11px, 1.2vw, 14px)', // 响应式标题字体
+                          fontWeight: '600',
                           color: '#111827',
                           margin: '0',
-                          lineHeight: '1.2',
+                          lineHeight: '1.3',
                           wordWrap: 'break-word',
                           flex: 1
                         }}>{article.title}</h4>
                       </div>
                       {article.aiSummary && (
                         <p style={{
-                          fontSize: '9px',
+                          fontSize: 'clamp(9px, 1vw, 12px)', // 响应式摘要字体
                           color: '#64748b',
-                          margin: '0 0 4px 0',
-                          lineHeight: '1.3',
+                          margin: '0 0 clamp(4px, 0.6vw, 6px) 0', // 响应式间距
+                          lineHeight: '1.4',
                           fontStyle: 'italic'
                         }}>💭 {article.aiSummary}</p>
                       )}
                       <p style={{
-                        fontSize: '9px',
+                        fontSize: 'clamp(9px, 1vw, 11px)', // 响应式来源字体
                         color: '#94a3b8',
                         margin: '0'
                       }}>
@@ -409,17 +459,17 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
             {/* 卡片底部 */}
             <div style={{
               background: '#f9fafb',
-              padding: '12px 20px',
+              padding: 'clamp(12px, 1.5vw, 16px) clamp(16px, 2vw, 20px)', // 响应式内边距
               textAlign: 'center',
               borderTop: '1px solid #f3f4f6'
             }}>
               <p style={{
-                fontSize: '11px',
+                fontSize: 'clamp(11px, 1.2vw, 14px)', // 响应式版权字体
                 color: '#6b7280',
-                margin: '0 0 4px 0'
+                margin: '0 0 clamp(4px, 0.6vw, 6px) 0' // 响应式间距
               }}>由 AI 自动生成和整理</p>
               <p style={{
-                fontSize: '10px',
+                fontSize: 'clamp(10px, 1vw, 12px)', // 响应式描述字体
                 color: '#9ca3af',
                 margin: '0',
                 fontWeight: '500'

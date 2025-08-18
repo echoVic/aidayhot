@@ -52,7 +52,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
         backdrop: "bg-black/20 backdrop-blur-md",
         base: "bg-white/95 backdrop-blur-xl border-0 shadow-2xl max-h-[85vh] max-w-[60vw]",
         header: "border-0 pb-0",
-        body: "pt-0 max-h-[70vh] overflow-y-auto custom-scrollbar",
+        body: "pt-0 overflow-y-auto",
       }}
     >
       <ModalContent className="bg-white/95 backdrop-blur-xl rounded-3xl overflow-hidden">
