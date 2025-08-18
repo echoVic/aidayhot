@@ -1,6 +1,7 @@
 'use client';
 
-import { toPng, toJpeg } from 'html-to-image';
+import { Button, ButtonGroup } from '@heroui/react';
+import { toJpeg, toPng, toSvg } from 'html-to-image';
 import { FileText, Image, Link2, MessageCircle, Twitter } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import {
@@ -23,7 +24,7 @@ interface ShareDailyReportProps {
 const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onClose }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
-  const [imageFormat, setImageFormat] = useState<'png' | 'jpeg'>('png');
+  const [imageFormat, setImageFormat] = useState<'png' | 'jpeg' | 'webp' | 'svg'>('png');
   const cardRef = useRef<HTMLDivElement>(null);
 
   // 重置状态当弹窗关闭时
@@ -57,12 +58,34 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
       // 等待内容完全渲染
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const generateFunction = imageFormat === 'png' ? toPng : toJpeg;
-      const fileExtension = imageFormat === 'png' ? 'png' : 'jpg';
+      let generateFunction;
+      let fileExtension;
       
-      const dataUrl = await generateFunction(cardRef.current, {
+      switch (imageFormat) {
+        case 'png':
+          generateFunction = toPng;
+          fileExtension = 'png';
+          break;
+        case 'jpeg':
+          generateFunction = toJpeg;
+          fileExtension = 'jpg';
+          break;
+        case 'webp':
+          // WebP格式使用PNG函数但修改MIME类型
+          generateFunction = toPng;
+          fileExtension = 'webp';
+          break;
+        case 'svg':
+          generateFunction = toSvg;
+          fileExtension = 'svg';
+          break;
+        default:
+          generateFunction = toPng;
+          fileExtension = 'png';
+      }
+      
+      const options: any = {
         quality: 1.0,
-        pixelRatio: 4, // 提高像素密度
         backgroundColor: '#ffffff',
         // 使用实际元素尺寸，确保响应式设计正确渲染
         width: cardRef.current.offsetWidth,
@@ -78,14 +101,44 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
           textRendering: 'optimizeLegibility',
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale'
-        } as any,
+        },
         // 优化的过滤函数
-        filter: (node) => {
+        filter: (node: Node) => {
           if (node.nodeType === Node.TEXT_NODE) return true;
-          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return false;
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as Element;
+            if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') return false;
+          }
           return true;
         }
-      });
+      };
+      
+      // 对于非SVG格式添加像素密度设置
+      if (imageFormat !== 'svg') {
+        options.pixelRatio = 4;
+      }
+      
+      let dataUrl = await generateFunction(cardRef.current, options);
+      
+      // 如果是WebP格式，需要转换数据URL
+        if (imageFormat === 'webp') {
+           // 创建canvas来转换为WebP
+           const canvas = document.createElement('canvas');
+           const ctx = canvas.getContext('2d');
+           const img = document.createElement('img');
+           
+           await new Promise<void>((resolve, reject) => {
+              img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx?.drawImage(img, 0, 0);
+                dataUrl = canvas.toDataURL('image/webp', 0.9);
+                resolve();
+              };
+              img.onerror = () => reject(new Error('Failed to load image'));
+              img.src = dataUrl;
+            });
+         }
       
       // 下载图片
       const link = document.createElement('a');
@@ -119,40 +172,91 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
     >
       <div className="space-y-8">
         {/* 图片格式选择 */}
-        <div className="mb-6">
-          <div className="text-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">图片格式选择</h3>
-            <p className="text-sm text-gray-500">选择适合的图片格式以获得最佳效果</p>
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">选择图片格式</h3>
+            <p className="text-sm text-gray-600">选择适合的图片格式以获得最佳效果</p>
           </div>
-          <div className="flex justify-center gap-3">
-            <button
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full max-w-3xl mx-auto">
+            <Button
+              variant={imageFormat === 'png' ? 'solid' : 'bordered'}
+              color={imageFormat === 'png' ? 'primary' : 'default'}
+              size="sm"
               onClick={() => setImageFormat('png')}
-              className={`px-4 py-2 rounded-lg border transition-all duration-200 ${
-                imageFormat === 'png'
-                  ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+              disableRipple
+              disableAnimation
+              className={`h-auto p-2 flex flex-col items-center space-y-1 transition-all duration-200 !outline-none !ring-0 !ring-offset-0 !border-transparent [&:focus]:!outline-none [&:focus]:!ring-0 [&:focus]:!ring-offset-0 [&:focus]:!border-transparent [&:active]:!outline-none [&:active]:!ring-0 [&:active]:!border-transparent [&[data-focus=true]]:!outline-none [&[data-focus=true]]:!ring-0 [&[data-pressed=true]]:!outline-none [&[data-pressed=true]]:!ring-0 ${
+                imageFormat === 'png' 
+                  ? 'bg-blue-500 text-white border-transparent shadow-md' 
+                  : 'bg-white hover:bg-blue-50 border-gray-200 hover:border-blue-300 text-gray-900'
               }`}
             >
-              PNG (推荐)
-            </button>
-            <button
+              <div className="text-center">
+                <div className="text-xs font-semibold mb-0.5">PNG</div>
+                <div className="text-[10px] opacity-80 leading-tight">无损压缩，文字更清晰</div>
+                <span className="inline-block mt-1 text-[9px] font-medium text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">推荐</span>
+              </div>
+            </Button>
+            
+            <Button
+              variant={imageFormat === 'jpeg' ? 'solid' : 'bordered'}
+              color={imageFormat === 'jpeg' ? 'warning' : 'default'}
+              size="sm"
               onClick={() => setImageFormat('jpeg')}
-              className={`px-4 py-2 rounded-lg border transition-all duration-200 ${
-                imageFormat === 'jpeg'
-                  ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+              disableRipple
+              disableAnimation
+              className={`h-auto p-2 flex flex-col items-center space-y-1 transition-all duration-200 !outline-none !ring-0 !ring-offset-0 !border-transparent [&:focus]:!outline-none [&:focus]:!ring-0 [&:focus]:!ring-offset-0 [&:focus]:!border-transparent [&:active]:!outline-none [&:active]:!ring-0 [&:active]:!border-transparent [&[data-focus=true]]:!outline-none [&[data-focus=true]]:!ring-0 [&[data-pressed=true]]:!outline-none [&[data-pressed=true]]:!ring-0 ${
+                imageFormat === 'jpeg' 
+                  ? 'bg-orange-500 text-white border-transparent shadow-md' 
+                  : 'bg-white hover:bg-orange-50 border-gray-200 hover:border-orange-300 text-gray-900'
               }`}
             >
-              JPEG
-            </button>
-          </div>
-          <div className="text-center mt-2">
-            <p className="text-xs text-gray-500">
-              {imageFormat === 'png' 
-                ? 'PNG格式：无损压缩，文字更清晰，适合公众号分享' 
-                : 'JPEG格式：文件更小，加载更快，适合网络分享'
-              }
-            </p>
+              <div className="text-center">
+                <div className="text-xs font-semibold mb-0.5">JPEG</div>
+                <div className="text-[10px] opacity-80 leading-tight">文件更小，加载更快</div>
+              </div>
+            </Button>
+            
+            <Button
+              variant={imageFormat === 'webp' ? 'solid' : 'bordered'}
+              color={imageFormat === 'webp' ? 'secondary' : 'default'}
+              size="sm"
+              onClick={() => setImageFormat('webp')}
+              disableRipple
+              disableAnimation
+              className={`h-auto p-2 flex flex-col items-center space-y-1 transition-all duration-200 !outline-none !ring-0 !ring-offset-0 !border-transparent [&:focus]:!outline-none [&:focus]:!ring-0 [&:focus]:!ring-offset-0 [&:focus]:!border-transparent [&:active]:!outline-none [&:active]:!ring-0 [&:active]:!border-transparent [&[data-focus=true]]:!outline-none [&[data-focus=true]]:!ring-0 [&[data-pressed=true]]:!outline-none [&[data-pressed=true]]:!ring-0 ${
+                imageFormat === 'webp' 
+                  ? 'bg-purple-500 text-white border-transparent shadow-md' 
+                  : 'bg-white hover:bg-purple-50 border-gray-200 hover:border-purple-300 text-gray-900'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-xs font-semibold mb-0.5">WebP</div>
+                <div className="text-[10px] opacity-80 leading-tight">现代格式，体积小</div>
+                <span className="inline-block mt-1 text-[9px] font-medium text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded-full">现代</span>
+              </div>
+            </Button>
+            
+            <Button
+              variant={imageFormat === 'svg' ? 'solid' : 'bordered'}
+              color={imageFormat === 'svg' ? 'success' : 'default'}
+              size="sm"
+              onClick={() => setImageFormat('svg')}
+              disableRipple
+              disableAnimation
+              className={`h-auto p-2 flex flex-col items-center space-y-1 transition-all duration-200 !outline-none !ring-0 !ring-offset-0 !border-transparent [&:focus]:!outline-none [&:focus]:!ring-0 [&:focus]:!ring-offset-0 [&:focus]:!border-transparent [&:active]:!outline-none [&:active]:!ring-0 [&:active]:!border-transparent [&[data-focus=true]]:!outline-none [&[data-focus=true]]:!ring-0 [&[data-pressed=true]]:!outline-none [&[data-pressed=true]]:!ring-0 ${
+                imageFormat === 'svg' 
+                  ? 'bg-emerald-500 text-white border-transparent shadow-md' 
+                  : 'bg-white hover:bg-emerald-50 border-gray-200 hover:border-emerald-300 text-gray-900'
+              }`}
+            >
+              <div className="text-center">
+                <div className="text-xs font-semibold mb-0.5">SVG</div>
+                <div className="text-[10px] opacity-80 leading-tight">矢量格式，无限缩放</div>
+                <span className="inline-block mt-1 text-[9px] font-medium text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">矢量</span>
+              </div>
+            </Button>
           </div>
         </div>
 
@@ -173,7 +277,7 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
                   {isGenerating ? '生成中...' : '生成图片'}
                 </div>
                 <div className="text-[10px] text-gray-600 leading-tight mt-0.5">
-                  高清 {imageFormat.toUpperCase()} 格式
+                  {imageFormat.toUpperCase()} 格式
                 </div>
               </div>
             </div>
