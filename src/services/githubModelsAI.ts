@@ -168,6 +168,43 @@ export class GitHubModelsAI {
   }
 
   /**
+   * 生成 AI 日报摘要（两步式处理）
+   */
+  async generateDailyReportSummary(articles: Article[]): Promise<{ summary: string; articles: Article[] }> {
+    try {
+      console.log('📝 第一步：为每篇文章生成详细中文总结...');
+      
+      // 第一步：为每篇文章生成详细总结
+      const summaries = await this.generateArticleSummaries(articles);
+      
+      // 将摘要添加到文章对象中
+      const articlesWithSummaries = articles.map(article => ({
+        ...article,
+        summary: summaries[article.url] || this.generateFallbackSummary(article)
+      }));
+      
+      console.log('📝 第二步：基于所有文章总结生成日报摘要...');
+      
+      // 第二步：基于所有文章总结生成整体日报摘要
+      const dailySummary = await this.generateOverallSummary(articlesWithSummaries, summaries);
+      
+      return {
+        summary: dailySummary,
+        articles: articlesWithSummaries
+      };
+    } catch (error) {
+      console.error('🔥 日报摘要生成失败:', error);
+      return {
+        summary: this.generateFallbackOverallSummary(articles),
+        articles: articles.map(article => ({
+          ...article,
+          summary: this.generateFallbackSummary(article)
+        }))
+      };
+    }
+  }
+
+  /**
    * 生成整体日报摘要
    */
   async generateOverallSummary(articles: Article[], summaries: { [key: string]: string }): Promise<string> {
@@ -227,6 +264,31 @@ export class GitHubModelsAI {
       return title;
     } catch (error) {
       console.error(`生成标题失败:`, error);
+      const today = new Date().toLocaleDateString('zh-CN');
+      return `AI技术日报 - ${today}`;
+    }
+  }
+
+  /**
+   * 基于摘要生成日报标题
+   */
+  async generateTitleFromSummary(summary: string): Promise<string> {
+    try {
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content: '你是一个专业的技术日报标题生成器。基于提供的日报摘要，生成一个简洁、吸引人的标题，突出技术热点和趋势。标题应该在10-20字之间。'
+        },
+        {
+          role: 'user',
+          content: `请基于以下日报摘要生成标题：\n\n${summary}`
+        }
+      ];
+
+      const title = await this.callAPI(messages, 50, 0.8);
+      return title.trim();
+    } catch (error) {
+      console.error('基于摘要生成标题失败:', error);
       const today = new Date().toLocaleDateString('zh-CN');
       return `AI技术日报 - ${today}`;
     }
