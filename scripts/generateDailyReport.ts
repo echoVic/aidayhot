@@ -7,8 +7,8 @@ import { createClient } from '@supabase/supabase-js';
 import { ArxivCrawler } from '../src/crawlers/ArxivCrawler';
 import { GitHubCrawler } from '../src/crawlers/GitHubCrawler';
 import { RSSCrawler } from '../src/crawlers/RSSCrawler';
-import { createVolcengineAI } from '../src/services/volcengineAI';
 import { createGitHubModelsAI } from '../src/services/githubModelsAI';
+import { createVolcengineAI } from '../src/services/volcengineAI';
 
 // 加载环境变量
 if (process.env.NODE_ENV !== 'production' && !process.env.GITHUB_ACTIONS) {

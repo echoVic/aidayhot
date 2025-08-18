@@ -9,12 +9,14 @@ import { createGitHubModelsAI } from '../src/services/githubModelsAI';
 if (process.env.NODE_ENV !== 'production' && !process.env.GITHUB_ACTIONS) {
   const dotenv = require('dotenv');
   const path = require('path');
-  const envPath = path.resolve(process.cwd(), '.env.local');
+  const envPath = path.resolve(__dirname, '..', '.env.local');
   try {
     dotenv.config({ path: envPath });
     console.log('🔧 从 .env.local 加载环境变量');
+    console.log(`🔧 环境变量文件路径: ${envPath}`);
   } catch (error) {
     console.log('🔧 使用系统环境变量');
+    console.error('环境变量加载错误:', error);
   }
 }
 
@@ -94,7 +96,23 @@ async function testGitHubModels() {
     console.log(`✅ 标题生成成功:`);
     console.log(`   ${title}`);
     
-    console.log('\n🎉 所有测试通过！GitHub Models AI 服务工作正常');
+    // 测试两步式日报生成（新功能）
+    console.log('\n5️⃣ 测试两步式日报生成:');
+    const dailyReport = await githubModelsAI.generateDailyReportSummary(testArticles);
+    console.log(`✅ 两步式日报生成成功:`);
+    console.log(`   日报摘要: ${dailyReport.summary}`);
+    console.log(`   文章数量: ${dailyReport.articles.length}`);
+    dailyReport.articles.forEach((article, index) => {
+      console.log(`   文章${index + 1}摘要: ${article.summary?.substring(0, 80)}...`);
+    });
+    
+    // 测试基于摘要生成标题（新功能）
+    console.log('\n6️⃣ 测试基于摘要生成标题:');
+    const titleFromSummary = await githubModelsAI.generateTitleFromSummary(dailyReport.summary);
+    console.log(`✅ 基于摘要的标题生成成功:`);
+    console.log(`   ${titleFromSummary}`);
+    
+    console.log('\n🎉 所有测试通过！GitHub Models AI 服务工作正常，包括新的两步式日报生成功能');
     
   } catch (error) {
     console.error('❌ 测试失败:', error);
