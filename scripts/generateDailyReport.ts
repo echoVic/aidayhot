@@ -26,16 +26,24 @@ if (process.env.NODE_ENV !== 'production' && !process.env.GITHUB_ACTIONS) {
 
 // 环境变量检查和适配
 let supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-let supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// 优先使用 service_role 密钥，回退到匿名密钥
+let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   const missingVars = [];
   if (!supabaseUrl) missingVars.push('SUPABASE_URL 或 NEXT_PUBLIC_SUPABASE_URL');
-  if (!supabaseKey) missingVars.push('SUPABASE_ANON_KEY 或 NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  if (!supabaseKey) missingVars.push('SUPABASE_SERVICE_ROLE_KEY 或 SUPABASE_ANON_KEY 或 NEXT_PUBLIC_SUPABASE_ANON_KEY');
   
   console.error('❌ 缺少必要的环境变量:', missingVars.join(', '));
   console.error('💡 请检查 .env.local 文件或 GitHub Secrets 配置');
   process.exit(1);
+}
+
+// 显示使用的密钥类型（用于调试）
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.log('🔑 使用 service_role 密钥（具有完整权限）');
+} else {
+  console.log('🔑 使用匿名密钥（权限受限）');
 }
 
 console.log('✅ Supabase 环境变量已加载');
