@@ -8,6 +8,7 @@ import { ArxivCrawler } from '../src/crawlers/ArxivCrawler';
 import { GitHubCrawler } from '../src/crawlers/GitHubCrawler';
 import { RSSCrawler } from '../src/crawlers/RSSCrawler';
 import { createVolcengineAI } from '../src/services/volcengineAI';
+import { createGitHubModelsAI } from '../src/services/githubModelsAI';
 
 // 加载环境变量
 if (process.env.NODE_ENV !== 'production' && !process.env.GITHUB_ACTIONS) {
@@ -56,12 +57,14 @@ const HOURS_BACK = parseInt(process.env.HOURS_BACK || '24');
 const MAX_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_ARTICLES_PER_SOURCE || '3');
 const MAX_RSS_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_RSS_ARTICLES_PER_SOURCE || '3'); // RSS源默认3篇
 const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES || 'all';
+const AI_SERVICE = process.env.AI_SERVICE || 'volcengine'; // 'volcengine' 或 'github-models'
 
 console.log(`⚙️ 配置参数:`);
 console.log(`   ⏰ 时间范围: 过去 ${HOURS_BACK} 小时`);
 console.log(`   📊 GitHub/ArXiv每源文章数: ${MAX_ARTICLES_PER_SOURCE}`);
 console.log(`   📰 RSS每源文章数: ${MAX_RSS_ARTICLES_PER_SOURCE}`);
 console.log(`   🎯 数据源类型: ${INCLUDE_SOURCES}`);
+console.log(`   🤖 AI服务: ${AI_SERVICE}`);
 
 // 时间过滤工具函数
 function isWithinTimeRange(publishTime: string, hoursBack: number): boolean {
@@ -301,6 +304,80 @@ class GitHubDailyReportGenerator {
    * 生成AI摘要
    */
   async generateAISummary(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
+    // 根据配置选择AI服务
+    if (AI_SERVICE === 'github-models') {
+      return await this.generateWithGitHubModels(articles);
+    } else {
+      return await this.generateWithVolcengine(articles);
+    }
+  }
+
+  /**
+   * 使用GitHub Models生成摘要
+   */
+  private async generateWithGitHubModels(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
+    try {
+      const githubToken = process.env.GITHUB_TOKEN || process.env.GITHUB_MODELS_TOKEN;
+      const githubModel = process.env.GITHUB_MODELS_MODEL || 'gpt-4o-mini';
+      
+      if (!githubToken) {
+        console.log('⚠️ 未配置GitHub Token，使用备用摘要生成');
+        return {
+          summary: this.generateFallbackSummary(articles),
+          articles: articles
+        };
+      }
+
+      console.log(`🤖 使用GitHub Models (${githubModel}) 生成AI摘要...`);
+      
+      const githubModelsAI = createGitHubModelsAI({
+        token: githubToken,
+        model: githubModel
+      });
+
+      // 转换文章格式以适配GitHub Models AI
+      const convertedArticles = articles.map(article => ({
+        title: article.title,
+        description: article.summary,
+        content: article.original_summary || article.summary,
+        url: article.source_url,
+        category: '技术资讯',
+        source: article.source_name,
+        publishTime: article.publish_time
+      }));
+
+      // 生成文章摘要
+      const summaries = await githubModelsAI.generateArticleSummaries(convertedArticles);
+      
+      // 生成整体摘要
+      const overallSummary = await githubModelsAI.generateOverallSummary(convertedArticles, summaries);
+      
+      // 生成标题
+      const title = await githubModelsAI.generateTitle(convertedArticles);
+
+      // 组装结果
+      const enhancedArticles = articles.map(article => ({
+        ...article,
+        aiSummary: summaries[article.source_url] || article.summary
+      }));
+
+      return {
+        summary: `# ${title}\n\n${overallSummary}`,
+        articles: enhancedArticles
+      };
+    } catch (error) {
+      console.error('🤖 GitHub Models摘要生成失败，使用备用方案:', error);
+      return {
+        summary: this.generateFallbackSummary(articles),
+        articles: articles
+      };
+    }
+  }
+
+  /**
+   * 使用火山引擎生成摘要
+   */
+  private async generateWithVolcengine(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
     const volcengineAI = createVolcengineAI();
     
     if (volcengineAI) {
