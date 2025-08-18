@@ -83,7 +83,7 @@ jobs:
         VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
         # GitHub Models 配置 (可选)
         AI_SERVICE: ${{ github.event.inputs.ai_service || secrets.AI_SERVICE || 'github-models' }}
-        GITHUB_MODELS_MODEL: ${{ secrets.GITHUB_MODELS_MODEL || 'gpt-4o-mini' }}
+        GITHUB_MODELS_MODEL: ${{ secrets.GITHUB_MODELS_MODEL || 'gpt-4.1' }}
       run: echo "环境变量已设置"
         
     - name: Generate Daily Report
