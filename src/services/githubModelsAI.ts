@@ -182,21 +182,23 @@ export class GitHubModelsAI {
         {
           role: 'system',
           content: `你是一个专业的技术日报编辑。请基于今日收集的技术文章，生成一份简洁的日报总结。总结应该：
-1. 控制在200-300字以内
-2. 突出今日技术热点和趋势
-3. 按重要性和相关性组织内容
-4. 使用专业但易懂的语言
-5. 体现技术发展的连贯性和前瞻性`
+1. 控制在80-120字以内（更加浓缩）
+2. 识别和突出最重要的技术趋势、研究突破或行业动态
+3. 如果有重大技术突破或产品发布，请特别强调
+4. 使用专业但易懂的中文表达
+5. 采用简洁的要点形式，避免冗长的句子
+6. 体现技术领域的整体发展方向和热点话题
+7. 不要包含具体日期信息，专注于技术内容本身`
         },
         {
           role: 'user',
-          content: `今日收集到 ${articles.length} 篇技术文章，请生成日报总结：\n\n${articlesWithSummaries.map((item, index) => 
-            `${index + 1}. 【${item.category}】${item.title}\n   摘要：${item.summary}`
-          ).join('\n\n')}`
+          content: `基于以下 ${articles.length} 篇技术文章的详细总结，生成一份简洁的技术日报摘要：\n\n${articlesWithSummaries.map((item, index) => 
+            `${index + 1}. 【${item.category}】${item.title}\n   AI详细总结: ${item.summary}`
+          ).join('\n\n')}\n\n要求：\n1. 基于上述文章的详细总结，提炼今日技术领域的主要动态\n2. 识别和突出最重要的技术趋势、研究突破或行业动态\n3. 生成80-120字的简洁日报摘要（更加浓缩）\n4. 采用专业但易懂的中文表达\n5. 如果有重大技术突破或产品发布，请特别强调\n6. 体现技术领域的整体发展方向和热点话题\n7. 使用简洁的要点形式，避免冗长的句子\n8. 不要包含具体日期信息，专注于技术内容本身\n\n请生成日报摘要：`
         }
       ];
 
-      const summary = await this.callAPI(messages, 400, 0.8);
+      const summary = await this.callAPI(messages, 200, 0.8);
       return summary;
     } catch (error) {
       console.error(`生成整体摘要失败:`, error);
