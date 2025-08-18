@@ -225,70 +225,65 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
                   lineHeight: '1.3',
                   boxSizing: 'border-box',
                   backgroundColor: '#ffffff',
-                  borderRadius: '12px',
-                  overflow: 'visible',
-                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
-                  border: '1px solid #e5e7eb',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04)',
+                  border: '1px solid rgba(0, 0, 0, 0.06)',
                   flexShrink: 0
                 }}
               >
             {/* 卡片头部 */}
             <div style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #1D4ED8 0%, #3B82F6 50%, #60A5FA 100%)',
               color: 'white',
-              padding: '20px',
-              textAlign: 'center'
+              padding: '32px',
+              textAlign: 'center',
+              borderRadius: '16px 16px 0 0',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
             }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                background: 'rgba(255, 255, 255, 0.25)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 12px',
-                fontSize: '16px',
-                fontWeight: 'bold'
-              }}>AI</div>
               <h1 style={{
-                fontSize: '20px',
-                fontWeight: 'bold',
-                margin: '0 0 8px 0'
-              }}>AI 日报</h1>
+                fontSize: '28px',
+                fontWeight: '600',
+                margin: '0 0 16px 0',
+                letterSpacing: '-0.5px',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+              }}>AI 每日热点</h1>
               <p style={{
-                fontSize: '14px',
-                opacity: '0.9',
-                margin: '0'
+                fontSize: '13px',
+                opacity: '0.85',
+                margin: '0',
+                fontWeight: '500',
+                letterSpacing: '0.2px'
               }}>{formatDateForShare(report.date)}</p>
             </div>
 
             {/* 卡片内容 */}
             <div style={{ 
-              padding: '20px',
+              padding: '24px',
               boxSizing: 'border-box',
               width: '100%'
             }}>
               {/* 总结部分 */}
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '20px' }}>
                 <h2 style={{
-                  fontSize: '14px',
+                  fontSize: '15px',
                   fontWeight: '600',
-                  color: '#374151',
-                  margin: '0 0 6px 0',
+                  color: '#1f2937',
+                  margin: '0 0 8px 0',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '6px',
                   width: '100%',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  letterSpacing: '-0.2px'
                 }}>
                   <span>📊</span>
                   今日总结
                 </h2>
                 <p style={{
-                  fontSize: '11px',
+                  fontSize: '12px',
                   color: '#6b7280',
-                  lineHeight: '1.4',
+                  lineHeight: '1.5',
                   margin: '0',
                   wordWrap: 'break-word',
                   width: '100%',
@@ -299,30 +294,34 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
               {/* 统计信息 */}
               <div style={{
                 display: 'flex',
-                gap: '12px',
-                marginBottom: '12px',
+                gap: '16px',
+                marginBottom: '16px',
                 justifyContent: 'center'
               }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    color: '#3b82f6'
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    color: '#3b82f6',
+                    letterSpacing: '-0.3px'
                   }}>{report.content.articles.length}</div>
                   <div style={{
-                    fontSize: '10px',
-                    color: '#6b7280'
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    fontWeight: '500'
                   }}>今日资讯</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    color: '#10b981'
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    color: '#10b981',
+                    letterSpacing: '-0.3px'
                   }}>{report.content.metadata.sources.length}</div>
                   <div style={{
-                    fontSize: '10px',
-                    color: '#6b7280'
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    fontWeight: '500'
                   }}>数据来源</div>
                 </div>
               </div>
@@ -330,13 +329,14 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
               {/* 所有文章列表 */}
               <div>
                 <h3 style={{
-                  fontSize: '14px',
+                  fontSize: '15px',
                   fontWeight: '600',
-                  color: '#374151',
-                  margin: '0 0 8px 0',
+                  color: '#1f2937',
+                  margin: '0 0 12px 0',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '6px',
+                  letterSpacing: '-0.2px'
                 }}>
                   <span>📰</span>
                   今日资讯
@@ -344,7 +344,7 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '8px',
+                  gap: '12px',
                   width: '100%'
                 }}>
                   {report.content.articles.map((article, index) => (
@@ -416,8 +416,14 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
               <p style={{
                 fontSize: '11px',
                 color: '#6b7280',
-                margin: '0'
+                margin: '0 0 4px 0'
               }}>由 AI 自动生成和整理</p>
+              <p style={{
+                fontSize: '10px',
+                color: '#9ca3af',
+                margin: '0',
+                fontWeight: '500'
+              }}>aidayhot.com</p>
             </div>
               </div>
             </div>
