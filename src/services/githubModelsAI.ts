@@ -75,6 +75,19 @@ export class GitHubModelsAI {
 
         if (!response.ok) {
           const errorText = await response.text();
+          
+          // 特殊处理速率限制错误
+          if (response.status === 429) {
+            const errorData = JSON.parse(errorText);
+            const retryAfter = this.extractRetryAfter(errorData);
+            
+            if (attempt < maxRetries) {
+              console.log(`⏳ 遇到速率限制，等待 ${retryAfter} 秒后重试...`);
+              await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+              continue;
+            }
+          }
+          
           throw new Error(`GitHub Models API错误 (${response.status}): ${errorText}`);
         }
 
@@ -95,7 +108,7 @@ export class GitHubModelsAI {
         lastError = error as Error;
         console.error(`❌ GitHub Models API调用失败 (尝试 ${attempt}/${maxRetries}):`, error);
         
-        if (attempt < maxRetries) {
+        if (attempt < maxRetries && !(error as Error).message.includes('429')) {
           const delay = Math.pow(2, attempt) * 1000; // 指数退避
           console.log(`⏳ ${delay}ms后重试...`);
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -104,6 +117,24 @@ export class GitHubModelsAI {
     }
 
     throw new Error(`GitHub Models API调用失败，已重试${maxRetries}次: ${lastError?.message}`);
+  }
+
+  /**
+   * 从错误响应中提取重试等待时间
+   */
+  private extractRetryAfter(errorData: any): number {
+    try {
+      if (errorData.error && errorData.error.message) {
+        const message = errorData.error.message;
+        const match = message.match(/wait (\d+) seconds/);
+        if (match) {
+          return parseInt(match[1], 10) + 5; // 额外增加5秒缓冲
+        }
+      }
+    } catch (e) {
+      console.warn('无法解析重试等待时间，使用默认值');
+    }
+    return 60; // 默认等待60秒
   }
 
   /**
@@ -141,8 +172,8 @@ export class GitHubModelsAI {
     console.log(`📝 开始生成 ${articles.length} 篇文章的摘要...`);
     const summaries: { [key: string]: string } = {};
     
-    // 并发处理，但限制并发数量避免API限流
-    const concurrency = 3;
+    // 降低并发数以适应GitHub Models速率限制（每分钟10次）
+    const concurrency = 2;
     const chunks = [];
     
     for (let i = 0; i < articles.length; i += concurrency) {
@@ -158,9 +189,11 @@ export class GitHubModelsAI {
       
       await Promise.all(promises);
       
-      // 批次间稍作延迟，避免API限流
+      // 增加批次间延迟，确保不超过速率限制
       if (chunks.indexOf(chunk) < chunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const delay = 15000; // 15秒延迟，确保每分钟不超过4-5次调用
+        console.log(`⏳ 等待 ${delay/1000} 秒以避免速率限制...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     
