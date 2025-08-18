@@ -10,6 +10,7 @@ interface Article {
   publishTime?: string;
   tags?: string[];
   source?: string;
+  summary?: string; // AI生成的文章摘要
 }
 
 interface GitHubModelsConfig {
