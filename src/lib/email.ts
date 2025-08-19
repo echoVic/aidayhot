@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // 邮件配置（Resend）
 const resend = new Resend(process.env.RESEND_API_KEY || '');
@@ -227,7 +227,7 @@ export async function sendDailyReportEmail(
     if (error) throw (error instanceof Error ? error : new Error(String(error)));
 
     // 记录发送日志
-    await supabase
+    await supabaseAdmin
       .from('email_logs')
       .insert({
         subscriber_id: subscriberId ?? null,
@@ -243,7 +243,7 @@ export async function sendDailyReportEmail(
     console.error('日报邮件发送失败:', error);
     
     // 记录失败日志
-    await supabase
+    await supabaseAdmin
       .from('email_logs')
       .insert({
         subscriber_id: subscriberId ?? null,
@@ -260,8 +260,8 @@ export async function sendDailyReportEmail(
 // 批量发送日报
 export async function sendDailyReportToAllSubscribers(report: any) {
   try {
-    // 获取所有已确认的订阅者
-    const { data: subscribers, error } = await supabase
+    // 获取所有已确认的订阅者（使用管理员客户端绕过RLS限制）
+    const { data: subscribers, error } = await supabaseAdmin
       .from('subscribers')
       .select('*')
       .eq('status', 'confirmed');

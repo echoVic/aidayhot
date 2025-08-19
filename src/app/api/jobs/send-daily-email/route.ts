@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { sendDailyReportToAllSubscribers } from '@/lib/email';
+import { supabaseAdmin } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server';
 
 // 验证请求授权（支持 Vercel Cron 或 Bearer token）
 function isAuthorized(request: NextRequest): boolean {
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // 获取今天的日报
     const today = new Date().toISOString().split('T')[0];
-    const { data: report, error } = await supabase
+    const { data: report, error } = await supabaseAdmin
       .from('daily_reports')
       .select('*')
       .eq('date', today)
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     
     // 获取指定日期的日报
-    const { data: report, error } = await supabase
+    const { data: report, error } = await supabaseAdmin
       .from('daily_reports')
       .select('*')
       .eq('date', date)

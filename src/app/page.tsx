@@ -8,6 +8,7 @@ import { StructuredData } from '../components/StructuredData';
 import SubscriptionSidebar from '../components/SubscriptionSidebar';
 
 
+
 // DailyReport组件的ref接口
 interface DailyReportRef {
   handleSearch: (query: string) => void;
@@ -81,6 +82,7 @@ export default function Home() {
           <div className="flex">
             {/* AI日报主内容 */}
             <main id="main-content" className="flex-1">
+
               <Suspense fallback={<div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>}>

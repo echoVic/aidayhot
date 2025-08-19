@@ -1,5 +1,5 @@
+import { supabaseAdmin } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 查找并验证令牌
-    const { data: subscriber, error: findError } = await supabase
+    const { data: subscriber, error: findError } = await supabaseAdmin
       .from('subscribers')
       .select('*')
       .eq('verification_token', token)
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 更新订阅状态为已确认
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('subscribers')
       .update({
         status: 'confirmed',

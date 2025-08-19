@@ -1,6 +1,6 @@
 'use client';
 
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { useMemoizedFn } from 'ahooks';
 import { CalendarDays, Home } from 'lucide-react';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
@@ -248,6 +248,7 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
         setLoadingMore(true);
       }
 
+      const supabase = getSupabase();
       let query = supabase
         .from('daily_reports')
         .select('*')
@@ -288,7 +289,7 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
       
       // 搜索过滤（客户端）
       const filteredReports = search 
-        ? newReports.filter(report => 
+        ? newReports.filter((report: Report) => 
             report.summary.toLowerCase().includes(search.toLowerCase()) ||
             report.content.articles.some((article: NewsItem) => 
               article.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -316,14 +317,14 @@ const DailyReport = forwardRef<DailyReportRef, object>((props, ref) => {
         setCurrentPage(0);
         // 只在初次加载时设置默认展开，避免覆盖用户的收起操作
         if (page === 0 && reports.length === 0) {
-          setExpandedCards(new Set(filteredReports.map(report => report.date)));
+          setExpandedCards(new Set(filteredReports.map((report: Report) => report.date)));
         }
       } else {
         setReports(prev => [...prev, ...filteredReports]);
         // 为新加载的日报也设置为展开状态（但不覆盖已有状态）
         setExpandedCards(prev => {
           const newSet = new Set(prev);
-          filteredReports.forEach(report => {
+          filteredReports.forEach((report: Report) => {
             // 只为新日报设置展开，不覆盖已有的状态
             if (!newSet.has(report.date)) {
               newSet.add(report.date);

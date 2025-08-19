@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import crypto from 'crypto';
 import { sendVerificationEmail } from '@/lib/email';
+import { supabaseAdmin } from '@/lib/supabase';
+import crypto from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查是否已经订阅
-    const { data: existingSubscriber, error: checkError } = await supabase
+    const { data: existingSubscriber, error: checkError } = await supabaseAdmin
       .from('subscribers')
       .select('*')
       .eq('email', email)
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       } else if (existingSubscriber.status === 'unsubscribed') {
         // 重新激活订阅
         const verificationToken = crypto.randomBytes(32).toString('hex');
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
           .from('subscribers')
           .update({
             status: 'pending',
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     // 创建新订阅
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from('subscribers')
       .insert({
         email,
@@ -104,7 +104,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 验证取消订阅令牌并更新状态
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('subscribers')
       .update({
         status: 'unsubscribed',
