@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { supabase } from '../../lib/supabase';
+import { getSupabaseAdmin } from '../../lib/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,6 +65,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   // 查询最近的日报，只选择RSS所需的字段
+  const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('daily_reports')
     .select('id, date, content, summary, created_at')
