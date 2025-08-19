@@ -21,13 +21,13 @@ export default function SubscriptionSuccessPage() {
                 "@type": "ListItem",
                 "position": 1,
                 "name": "首页",
-                "item": "https://aidayhot.com"
+                "item": "https://www.dayhot.top"
               },
               {
                 "@type": "ListItem",
                 "position": 2,
                 "name": "订阅成功",
-                "item": "https://aidayhot.com/subscription/success"
+                "item": "https://www.dayhot.top/subscription/success"
               }
             ]
           }

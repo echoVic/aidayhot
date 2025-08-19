@@ -22,8 +22,8 @@ Allow: /*.svg$
 Allow: /*.webp$
 
 # 网站地图 - 帮助搜索引擎发现所有页面
-Sitemap: https://aidayhot.com/sitemap.xml
-Sitemap: https://aidayhot.com/rss.xml
+Sitemap: https://www.dayhot.top/sitemap.xml
+Sitemap: https://www.dayhot.top/rss.xml
 
 # Google 特定配置
 User-agent: Googlebot

@@ -21,13 +21,13 @@ export default function SubscriptionErrorPage() {
                 "@type": "ListItem",
                 "position": 1,
                 "name": "首页",
-                "item": "https://aidayhot.com"
+                "item": "https://www.dayhot.top"
               },
               {
                 "@type": "ListItem",
                 "position": 2,
                 "name": "订阅验证失败",
-                "item": "https://aidayhot.com/subscription/error"
+                "item": "https://www.dayhot.top/subscription/error"
               }
             ]
           }

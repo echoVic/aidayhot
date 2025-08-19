@@ -577,7 +577,7 @@ const ShareDailyReport: React.FC<ShareDailyReportProps> = ({ report, isOpen, onC
                 color: '#9ca3af',
                 margin: '0',
                 fontWeight: '500'
-              }}>aidayhot.com</p>
+              }}>dayhot.top</p>
             </div>
               </div>
             </div>

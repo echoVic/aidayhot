@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     'AI资讯', '技术动态', '行业分析', 'AI工具', 'AI应用', '大模型',
     '自然语言处理', '计算机视觉', 'AI新闻', '人工智能日报'
   ],
-  authors: [{ name: 'AI每日热点团队', url: 'https://aidayhot.com' }],
+  authors: [{ name: 'AI每日热点团队', url: 'https://www.dayhot.top' }],
   creator: 'AI每日热点团队',
   publisher: 'AI每日热点',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=5',
@@ -51,10 +51,10 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'zh_CN',
     siteName: 'AI每日热点',
-    url: 'https://aidayhot.com',
+    url: 'https://www.dayhot.top',
     images: [
       {
-        url: 'https://aidayhot.com/og-image.png',
+        url: 'https://www.dayhot.top/og-image.png',
         width: 1200,
         height: 630,
         alt: 'AI每日热点 - 人工智能资讯聚合平台',
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     description: '每日更新的人工智能资讯平台，提供最新AI技术动态、行业分析和深度报告',
     site: '@aidayhot',
     creator: '@aidayhot',
-    images: ['https://aidayhot.com/og-image.png'],
+    images: ['https://www.dayhot.top/og-image.png'],
   },
   robots: {
     index: true,
@@ -82,9 +82,9 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: 'https://aidayhot.com',
+    canonical: 'https://www.dayhot.top',
     types: {
-      'application/rss+xml': 'https://aidayhot.com/rss.xml',
+      'application/rss+xml': 'https://www.dayhot.top/rss.xml',
     },
   },
   verification: {

@@ -97,13 +97,13 @@
       "@type": "ListItem",
       "position": 1,
       "name": "首页",
-      "item": "https://aidayhot.com"
+      "item": "https://www.dayhot.top"
     },
     {
       "@type": "ListItem", 
       "position": 2,
       "name": "技术前沿",
-      "item": "https://aidayhot.com/tech"
+      "item": "https://www.dayhot.top/tech"
     }
   ]
 }
@@ -119,7 +119,7 @@ export const metadata: Metadata = {
     title: "OpenGraph标题",
     description: "OpenGraph描述",
     images: [{
-      url: "https://aidayhot.com/og-image.png",
+      url: "https://www.dayhot.top/og-image.png",
       alt: "图片alt文本"
     }]
   }
@@ -181,5 +181,5 @@ export const metadata: Metadata = {
 ## 联系和支持
 
 如需SEO相关的技术支持或有优化建议，请通过以下方式联系：
-- GitHub Issues: [创建Issue](https://github.com/your-repo/aidayhot/issues)
-- 邮件反馈: seo@aidayhot.com
+- GitHub Issues: [创建Issue](https://github.com/echovic/aidayhot/issues)
+- 邮件反馈: echovic007@163.com
