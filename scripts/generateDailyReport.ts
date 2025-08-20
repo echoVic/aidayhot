@@ -134,6 +134,7 @@ class GitHubDailyReportGenerator {
           let addedCount = 0;
           const maxArxivArticles = Math.min(MAX_ARTICLES_PER_SOURCE, 2); // ArXiv最多2篇
           for (const paper of arxivResult.papers) {
+            console.log("🚀 ~ GitHubDailyReportGenerator ~ collectTodayData ~ paper:", paper)
             const publishTime = paper.published instanceof Date ? paper.published.toISOString() : new Date().toISOString();
             if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < maxArxivArticles) {
               articles.push({
@@ -164,6 +165,7 @@ class GitHubDailyReportGenerator {
           let addedCount = 0;
           const maxGithubProjects = Math.min(MAX_ARTICLES_PER_SOURCE, 2); // GitHub最多2个项目
           for (const repo of githubResult.repositories) {
+            console.log("🚀 ~ GitHubDailyReportGenerator ~ collectTodayData ~ repo:", repo)
             const publishTime = repo.updatedAt instanceof Date ? repo.updatedAt.toISOString() : new Date().toISOString();
             if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < maxGithubProjects) {
               articles.push({
@@ -261,8 +263,14 @@ class GitHubDailyReportGenerator {
           if (rssResult.success && rssResult.data?.items) {
             let addedCount = 0;
             for (const item of rssResult.data.items) {
-              const publishTime = item.pubDate instanceof Date ? item.pubDate.toISOString() : new Date().toISOString();
+              // 只处理有有效发布时间的文章
+              if (!item.pubDate || !(item.pubDate instanceof Date)) {
+                console.warn(`跳过无效时间的文章: ${item.title || '无标题'}`);
+                continue;
+              }
+              const publishTime = item.pubDate.toISOString();
               if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < MAX_RSS_ARTICLES_PER_SOURCE) {
+                              console.log("🚀 ~ GitHubDailyReportGenerator ~ collectTodayData ~ item:", item)
                 articles.push({
                   title: item.title || '无标题', // 保持原始标题，AI摘要阶段会处理
                   original_summary: item.description?.substring(0, 200) + '...' || '暂无摘要', // 保留原始摘要
@@ -498,6 +506,7 @@ class GitHubDailyReportGenerator {
       
       if (articles.length === 0) {
         console.log('⚠️ 没有抓取到任何数据，生成空日报');
+        return false;
       }
 
       // 2. 生成摘要

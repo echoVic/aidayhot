@@ -58,16 +58,20 @@ export class RSSCrawler extends BaseCrawler {
         followRedirect: true,
         maxRedirects: 10,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*',
           'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
           'Accept-Encoding': 'gzip, deflate, br',
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
           'Connection': 'keep-alive',
           'Sec-Fetch-Dest': 'document',
           'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-Site': 'cross-site',
+          'Sec-Fetch-User': '?1',
           'Upgrade-Insecure-Requests': '1',
+          'DNT': '1',
+          'Sec-GPC': '1',
           ...this.options.headers
         },
         retry: {
@@ -82,6 +86,11 @@ export class RSSCrawler extends BaseCrawler {
         }
       });
 
+      // 检查响应是否为有效的 XML/RSS 内容
+      if (response.body.includes('<!DOCTYPE html>') || response.body.includes('<html')) {
+        throw new Error('RSS源返回HTML页面，可能被防火墙或CDN拦截');
+      }
+      
       // 解析XML
       const parsedFeed = this.xmlParser.parse(response.body) as ParsedRSSFeed;
       
@@ -133,13 +142,38 @@ export class RSSCrawler extends BaseCrawler {
     }
   }
 
-  private safeParseDate(dateStr: string | undefined): Date | null {
-    if (!dateStr) return new Date();
+  private safeParseDate(dateStr: string | undefined, item?: any, fallbackToCurrent: boolean = true, suppressWarning: boolean = false): Date | null {
+    if (!dateStr) {
+      // 尝试从其他字段提取时间信息
+      const alternativeDate = this.extractAlternativeDate(item);
+      if (alternativeDate) {
+        return alternativeDate;
+      }
+      
+      if (fallbackToCurrent) {
+        return new Date();
+      } else {
+        return null;
+      }
+    }
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) {
-      console.warn('无效时间格式，已跳过:', dateStr);
       return null;
     }
+    
+    // 检查是否为未来时间（超过当前时间1年）- 放宽限制
+    const now = new Date();
+    const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    if (d > oneYearFromNow) {
+      return null;
+    }
+    
+    // 检查是否为过于久远的时间（超过10年前）
+    const tenYearsAgo = new Date(now.getTime() - 10 * 365 * 24 * 60 * 60 * 1000);
+    if (d < tenYearsAgo) {
+      return null;
+    }
+    
     return d;
   }
 
@@ -150,14 +184,18 @@ export class RSSCrawler extends BaseCrawler {
     if (!itemArray) return items;
     
     const itemList = Array.isArray(itemArray) ? itemArray : [itemArray];
+    let emptyDateCount = 0;
     
     for (const item of itemList) {
       if (isAtom) {
         // Atom格式解析
         const id = this.generateContentId(item.link?.['@_href'] || item.id);
         const content = item.content?.['#text'] || item.content || item.summary?.['#text'] || item.summary || '';
-        const pubDate = this.safeParseDate(item.updated);
+        
+        
+        const pubDate = this.safeParseDate(item.updated, item, true, emptyDateCount > 0);
         if (!pubDate) continue;
+        if (!item.updated) emptyDateCount++;
         items.push({
           id,
           title: item.title?.['#text'] || item.title || '',
@@ -178,8 +216,19 @@ export class RSSCrawler extends BaseCrawler {
         // RSS格式解析
         const id = this.generateContentId(item.link || item.guid);
         const content = item.description || item['content:encoded'] || item.content || '';
-        const pubDate = this.safeParseDate(item.pubDate);
+        
+        
+        // 跳过无效条目（标题为空且缺少时间）
+        if (!item.pubDate && (!item.title || item.title.trim() === '')) {
+          continue;
+        }
+        
+        const pubDate = this.safeParseDate(item.pubDate, item, true, emptyDateCount > 0);
         if (!pubDate) continue;
+        
+        if (!item.pubDate) {
+          emptyDateCount++;
+        }
         items.push({
           id,
           title: item.title || '',
@@ -199,7 +248,35 @@ export class RSSCrawler extends BaseCrawler {
       }
     }
     
+    if (emptyDateCount > 0) {
+      console.log(`ℹ️ ${emptyDateCount} 条有效条目使用了当前时间作为备用时间`);
+    }
+    
     return items;
+  }
+
+  // 尝试从其他字段提取时间信息
+  private extractAlternativeDate(item: any): Date | null {
+    if (!item) return null;
+    
+    // 常见的时间字段名称
+    const timeFields = [
+      'date', 'published', 'publishedDate', 'created', 'createdDate',
+      'modified', 'modifiedDate', 'lastModified', 'timestamp',
+      'dc:date', 'atom:updated', 'atom:published'
+    ];
+    
+    for (const field of timeFields) {
+      const value = item[field];
+      if (value) {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+    }
+    
+    return null;
   }
 
   private extractTitle(feedData: any, isAtom: boolean): string {
@@ -391,4 +468,4 @@ export class RSSCrawler extends BaseCrawler {
       failedFeeds.forEach(feed => console.log(`   • ${feed}`));
     }
   }
-} 
+}
