@@ -1,9 +1,9 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { BaseCrawler } from './BaseCrawler';
 import type {
-    CrawlerOptions,
-    GitHubCrawlerResult,
-    GitHubRepository
+  CrawlerOptions,
+  GitHubCrawlerResult,
+  GitHubRepository
 } from './types';
 
 /**
@@ -26,6 +26,12 @@ export class GitHubCrawler extends BaseCrawler {
     'computer vision',
     'natural language processing',
     'reinforcement learning'
+  ];
+
+  // Default supported programming languages for AI/ML projects
+  private readonly defaultLanguages: string[] = [
+    'Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 
+    'Java', 'C++', 'R', 'Julia', 'Scala', 'Swift'
   ];
 
   constructor(token?: string, options: CrawlerOptions = {}) {
@@ -181,16 +187,22 @@ export class GitHubCrawler extends BaseCrawler {
 
   /**
    * Get trending AI repositories across multiple categories
+   * @param languages - Array of programming languages to search for (defaults to all supported languages)
    */
-  public async getTrendingAIRepositories(): Promise<Record<string, GitHubCrawlerResult>> {
+  public async getTrendingAIRepositories(
+    languages: string[] = this.defaultLanguages
+  ): Promise<Record<string, GitHubCrawlerResult>> {
     const results: Record<string, GitHubCrawlerResult> = {};
     
     for (const query of this.defaultQueries) {
       console.log(`[GitHubCrawler] Searching trending: ${query}...`);
       
       try {
-        // Search for repositories with good activity and stars
-        const searchQuery = `${query} stars:>100 pushed:>2024-01-01`;
+        // Search for repositories with good activity and stars across multiple languages
+        const languageFilter = languages.length > 0 ? 
+          `(${languages.map(lang => `language:${lang}`).join(' OR ')})` : '';
+        const searchQuery = `${query} stars:>100 pushed:>2024-01-01 ${languageFilter} NOT fork:true`.trim();
+        
         results[query] = await this.searchRepositories(searchQuery, 'updated', 'desc', 10);
         
         // Delay to respect rate limits
@@ -208,6 +220,49 @@ export class GitHubCrawler extends BaseCrawler {
     }
 
     return results;
+  }
+
+  /**
+   * Get trending AI repositories for specific programming languages
+   * @param languages - Array of specific programming languages
+   */
+  public async getTrendingAIRepositoriesForLanguages(
+    languages: string[]
+  ): Promise<Record<string, GitHubCrawlerResult>> {
+    return this.getTrendingAIRepositories(languages);
+  }
+
+  /**
+   * Get trending AI repositories without language restrictions
+   */
+  public async getTrendingAIRepositoriesAllLanguages(): Promise<Record<string, GitHubCrawlerResult>> {
+    return this.getTrendingAIRepositories([]);
+  }
+
+  /**
+   * Get trending AI repositories for a single programming language
+   * @param language - Programming language to search for
+   */
+  public async getTrendingAIRepositoriesForLanguage(
+    language: string
+  ): Promise<Record<string, GitHubCrawlerResult>> {
+    return this.getTrendingAIRepositories([language]);
+  }
+
+  /**
+   * Get the list of supported programming languages
+   * @returns Array of supported programming languages
+   */
+  public getSupportedLanguages(): string[] {
+    return [...this.defaultLanguages];
+  }
+
+  /**
+   * Get the list of default AI search queries
+   * @returns Array of default search queries
+   */
+  public getDefaultQueries(): string[] {
+    return [...this.defaultQueries];
   }
 
   /**
@@ -471,10 +526,11 @@ export class GitHubCrawler extends BaseCrawler {
   }
 
   /**
-   * Test AI repositories fetching
+   * Test AI repositories fetching with default languages
    */
   public async testAIRepositories(): Promise<Record<string, GitHubCrawlerResult>> {
-    console.log('\n[GitHubCrawler] Testing AI repositories fetching...');
+    console.log('\n[GitHubCrawler] Testing AI repositories fetching with default languages...');
+    console.log(`Supported languages: ${this.defaultLanguages.join(', ')}`);
 
     const results = await this.getTrendingAIRepositories();
 
@@ -487,6 +543,70 @@ export class GitHubCrawler extends BaseCrawler {
         successCount++;
         totalRepos += result.repositories.length;
         console.log(`✅ ${query}: ${result.repositories.length} repositories`);
+        // Show language distribution for first few repos
+        const languages = result.repositories.slice(0, 3).map(repo => repo.language).filter(Boolean);
+        if (languages.length > 0) {
+          console.log(`   Languages: ${languages.join(', ')}`);
+        }
+      } else {
+        console.log(`❌ ${query}: ${result.error}`);
+      }
+    }
+
+    console.log(`\nTotal: ${successCount}/${Object.keys(results).length} queries successful, ${totalRepos} repositories fetched`);
+
+    return results;
+  }
+
+  /**
+   * Test AI repositories fetching for specific languages
+   */
+  public async testAIRepositoriesForLanguages(languages: string[]): Promise<Record<string, GitHubCrawlerResult>> {
+    console.log(`\n[GitHubCrawler] Testing AI repositories for languages: ${languages.join(', ')}...`);
+
+    const results = await this.getTrendingAIRepositoriesForLanguages(languages);
+
+    console.log('\n=== Language-Specific AI Repositories Results ===');
+    let totalRepos = 0;
+    let successCount = 0;
+
+    for (const [query, result] of Object.entries(results)) {
+      if (result.success) {
+        successCount++;
+        totalRepos += result.repositories.length;
+        console.log(`✅ ${query}: ${result.repositories.length} repositories`);
+      } else {
+        console.log(`❌ ${query}: ${result.error}`);
+      }
+    }
+
+    console.log(`\nTotal: ${successCount}/${Object.keys(results).length} queries successful, ${totalRepos} repositories fetched`);
+
+    return results;
+  }
+
+  /**
+   * Test AI repositories fetching without language restrictions
+   */
+  public async testAIRepositoriesAllLanguages(): Promise<Record<string, GitHubCrawlerResult>> {
+    console.log('\n[GitHubCrawler] Testing AI repositories without language restrictions...');
+
+    const results = await this.getTrendingAIRepositoriesAllLanguages();
+
+    console.log('\n=== All Languages AI Repositories Results ===');
+    let totalRepos = 0;
+    let successCount = 0;
+
+    for (const [query, result] of Object.entries(results)) {
+      if (result.success) {
+        successCount++;
+        totalRepos += result.repositories.length;
+        console.log(`✅ ${query}: ${result.repositories.length} repositories`);
+        // Show language diversity
+        const languages = [...new Set(result.repositories.map(repo => repo.language).filter(Boolean))];
+        if (languages.length > 0) {
+          console.log(`   Languages found: ${languages.slice(0, 5).join(', ')}${languages.length > 5 ? '...' : ''}`);
+        }
       } else {
         console.log(`❌ ${query}: ${result.error}`);
       }
