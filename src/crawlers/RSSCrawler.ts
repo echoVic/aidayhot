@@ -150,7 +150,13 @@ export class RSSCrawler extends BaseCrawler {
         return alternativeDate;
       }
       
+      // 记录缺少时间信息的警告
+      if (!suppressWarning) {
+        console.warn(`⚠️ RSS条目缺少发布时间信息: ${item?.title || '无标题'}`);
+      }
+      
       if (fallbackToCurrent) {
+        console.warn(`⚠️ 使用当前时间作为备用时间: ${item?.title || '无标题'}`);
         return new Date();
       } else {
         return null;
@@ -161,10 +167,13 @@ export class RSSCrawler extends BaseCrawler {
       return null;
     }
     
-    // 检查是否为未来时间（超过当前时间1年）- 放宽限制
+    // 检查是否为未来时间（超过当前时间1个月）- 严格限制
     const now = new Date();
-    const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-    if (d > oneYearFromNow) {
+    const oneMonthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    if (d > oneMonthFromNow) {
+      if (!suppressWarning) {
+        console.warn(`⚠️ RSS条目时间异常（未来时间）: ${item?.title || '无标题'}, 时间: ${d.toISOString()}`);
+      }
       return null;
     }
     
@@ -193,7 +202,7 @@ export class RSSCrawler extends BaseCrawler {
         const content = item.content?.['#text'] || item.content || item.summary?.['#text'] || item.summary || '';
         
         
-        const pubDate = this.safeParseDate(item.updated, item, true, emptyDateCount > 0);
+        const pubDate = this.safeParseDate(item.updated, item, false, emptyDateCount > 0);
         if (!pubDate) continue;
         if (!item.updated) emptyDateCount++;
         items.push({
@@ -223,7 +232,7 @@ export class RSSCrawler extends BaseCrawler {
           continue;
         }
         
-        const pubDate = this.safeParseDate(item.pubDate, item, true, emptyDateCount > 0);
+        const pubDate = this.safeParseDate(item.pubDate, item, false, emptyDateCount > 0);
         if (!pubDate) continue;
         
         if (!item.pubDate) {
