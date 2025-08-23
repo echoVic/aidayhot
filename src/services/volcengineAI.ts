@@ -29,7 +29,11 @@ export class VolcengineAI {
 
   constructor(config: VolcengineConfig) {
     this.apiKey = config.apiKey;
-    this.endpoint = config.endpoint || 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+    // 确保端点包含完整的chat/completions路径
+    const baseEndpoint = config.endpoint || 'https://ark.cn-beijing.volces.com/api/v3';
+    this.endpoint = baseEndpoint.endsWith('/chat/completions') 
+      ? baseEndpoint 
+      : `${baseEndpoint}/chat/completions`;
     this.model = config.model || 'ep-20250806144921-5qqcz'; // 默认模型，可根据实际情况调整
   }
 
@@ -205,6 +209,60 @@ ${summary}
     } catch (error) {
       console.error('🔥 从摘要生成标题失败:', error);
       return 'AI总结生成标题';
+    }
+  }
+
+  /**
+   * 分析文章与AI的相关性
+   */
+  async analyzeAIRelevance(article: { title: string; summary: string }): Promise<{ isRelevant: boolean; score: number; reason: string }> {
+    try {
+      const prompt = `请分析以下文章是否与人工智能(AI)、机器学习(ML)、深度学习(DL)、大语言模型(LLM)等相关技术有关。
+
+标题: ${article.title}
+摘要: ${article.summary}
+
+请返回JSON格式的分析结果:
+{
+  "isRelevant": true/false,
+  "score": 0-100的相关性分数,
+  "reason": "简短的判断理由"
+}
+
+判断标准:
+- 90-100分: 直接讨论AI/ML技术、模型、算法
+- 70-89分: 涉及AI应用、工具、平台
+- 50-69分: 间接相关，如数据科学、自动化等
+- 30-49分: 轻微相关，如技术趋势中提及AI
+- 0-29分: 基本无关
+
+排除内容（直接评为0分）:
+- 营销活动、抽奖、促销、优惠券等商业推广
+- 招聘信息、人事变动
+- 纯娱乐内容、段子、表情包
+- 与技术无关的企业新闻
+- 活动报名、会议通知等事务性信息
+
+阈值: 50分以上认为相关`;
+
+      const response = await this.callAPI([
+        { role: 'user', content: prompt }
+      ]);
+      
+      if (!response) {
+        throw new Error('API返回空响应');
+      }
+      
+      const result = JSON.parse(response);
+      return {
+        isRelevant: result.isRelevant && result.score >= 50,
+        score: result.score || 0,
+        reason: result.reason || '未知'
+      };
+    } catch (error) {
+      console.error('🔥 AI相关性分析失败:', error);
+      // 返回默认值，让调用方使用关键词匹配
+      throw error;
     }
   }
 

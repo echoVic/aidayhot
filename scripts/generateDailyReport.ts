@@ -5,7 +5,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { ArxivCrawler } from '../src/crawlers/ArxivCrawler';
-import { GitHubCrawler } from '../src/crawlers/GitHubCrawler';
+
 import { RSSCrawler } from '../src/crawlers/RSSCrawler';
 import { createGitHubModelsAI } from '../src/services/githubModelsAI';
 import { createVolcengineAI } from '../src/services/volcengineAI';
@@ -58,13 +58,15 @@ const MAX_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_ARTICLES_PER_SOURCE || 
 const MAX_RSS_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_RSS_ARTICLES_PER_SOURCE || '3'); // RSS源默认3篇
 const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES || 'all';
 const AI_SERVICE = process.env.AI_SERVICE || 'volcengine'; // 'volcengine' 或 'github-models'
+const ENABLE_AI_RELEVANCE_FILTER = process.env.ENABLE_AI_RELEVANCE_FILTER !== 'false'; // 默认启用AI相关性过滤
 
 console.log(`⚙️ 配置参数:`);
 console.log(`   ⏰ 时间范围: 过去 ${HOURS_BACK} 小时`);
-console.log(`   📊 GitHub/ArXiv每源文章数: ${MAX_ARTICLES_PER_SOURCE}`);
+console.log(`   📊 ArXiv每源文章数: ${MAX_ARTICLES_PER_SOURCE}`);
 console.log(`   📰 RSS每源文章数: ${MAX_RSS_ARTICLES_PER_SOURCE}`);
 console.log(`   🎯 数据源类型: ${INCLUDE_SOURCES}`);
 console.log(`   🤖 AI服务: ${AI_SERVICE}`);
+console.log(`   🔍 AI相关性过滤: ${ENABLE_AI_RELEVANCE_FILTER ? '启用' : '禁用'}`);
 
 // 时间过滤工具函数
 function isWithinTimeRange(publishTime: string, hoursBack: number): boolean {
@@ -84,7 +86,7 @@ function shouldIncludeSource(category: string, includeType: string): boolean {
       return category === 'AI/机器学习';
     case 'tech-development':
       return category === '技术/开发';
-    case 'arxiv-github-only':
+    case 'arxiv-only':
       return false; // RSS源不包含在此选项中
     case 'all':
     default:
@@ -108,14 +110,163 @@ interface DailyReportData {
 
 class GitHubDailyReportGenerator {
   private arxivCrawler: ArxivCrawler;
-  private githubCrawler: GitHubCrawler;
   private rssCrawler: RSSCrawler;
 
   constructor() {
     this.arxivCrawler = new ArxivCrawler();
-    this.githubCrawler = new GitHubCrawler();
     this.rssCrawler = new RSSCrawler();
     console.log('🤖 AI日报生成器已初始化 (GitHub Actions 版本)');
+  }
+
+  /**
+   * 分析文章与AI的相关性
+   */
+  private async analyzeAIRelevance(article: ArticleData): Promise<{ isRelevant: boolean; score: number; reason: string }> {
+    try {
+      // 根据配置选择AI服务进行相关性分析
+      if (AI_SERVICE === 'github-models') {
+        return await this.analyzeAIRelevanceWithGitHubModels(article);
+      } else {
+        return await this.analyzeAIRelevanceWithVolcengine(article);
+      }
+    } catch (error) {
+      console.warn(`⚠️ AI相关性分析失败: ${article.title}`, error);
+      // 如果AI分析失败，使用关键词匹配作为备用方案
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
+  }
+
+  /**
+   * 使用GitHub Models分析AI相关性
+   */
+  private async analyzeAIRelevanceWithGitHubModels(article: ArticleData): Promise<{ isRelevant: boolean; score: number; reason: string }> {
+    const githubToken = process.env.GITHUB_TOKEN || process.env.GITHUB_MODELS_TOKEN;
+    const githubModel = process.env.GITHUB_MODELS_MODEL || 'gpt-4o-mini';
+    
+    if (!githubToken) {
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
+
+    const githubModelsAI = createGitHubModelsAI({
+      token: githubToken,
+      model: githubModel
+    });
+
+    try {
+      const result = await githubModelsAI.analyzeAIRelevance({
+        title: article.title,
+        summary: article.summary
+      });
+      
+      return result;
+    } catch (error) {
+      console.warn('GitHub Models相关性分析失败，使用关键词匹配', error);
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
+  }
+
+  /**
+   * 使用火山引擎分析AI相关性
+   */
+  private async analyzeAIRelevanceWithVolcengine(article: ArticleData): Promise<{ isRelevant: boolean; score: number; reason: string }> {
+    const volcengineAI = createVolcengineAI();
+    
+    if (!volcengineAI) {
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
+
+    try {
+      const result = await volcengineAI.analyzeAIRelevance({
+        title: article.title,
+        summary: article.summary
+      });
+      
+      return result;
+    } catch (error) {
+      console.warn('火山引擎相关性分析失败，使用关键词匹配', error);
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
+  }
+
+  /**
+   * 使用关键词匹配分析AI相关性（备用方案）
+   */
+  private analyzeAIRelevanceWithKeywords(article: ArticleData): { isRelevant: boolean; score: number; reason: string } {
+    const aiKeywords = [
+      // 核心AI术语
+      'artificial intelligence', 'ai', '人工智能',
+      'machine learning', 'ml', '机器学习',
+      'deep learning', 'dl', '深度学习',
+      'neural network', '神经网络',
+      'large language model', 'llm', '大语言模型',
+      'natural language processing', 'nlp', '自然语言处理',
+      'computer vision', '计算机视觉',
+      'generative ai', '生成式ai', 'genai',
+      
+      // AI公司和产品
+      'openai', 'chatgpt', 'gpt', 'claude', 'anthropic',
+      'google ai', 'deepmind', 'gemini', 'bard',
+      'microsoft copilot', 'azure ai',
+      'hugging face', 'transformers',
+      'nvidia', 'cuda', 'tensorrt',
+      
+      // 中文AI公司和产品
+      '百度', '文心', 'ernie',
+      '阿里', '通义', 'qwen',
+      '腾讯', '混元',
+      '字节', 'doubao', '豆包',
+      '智谱', 'chatglm', 'glm',
+      '月之暗面', 'kimi',
+      'deepseek', '深度求索',
+      
+      // AI技术和概念
+      'transformer', 'attention', 'bert', 'gpt',
+      'diffusion', 'gan', 'vae',
+      'reinforcement learning', '强化学习',
+      'supervised learning', '监督学习',
+      'unsupervised learning', '无监督学习',
+      'fine-tuning', '微调',
+      'prompt engineering', '提示工程',
+      'rag', 'retrieval augmented generation',
+      'multimodal', '多模态',
+      
+      // AI应用领域
+      'autonomous driving', '自动驾驶',
+      'robotics', '机器人',
+      'recommendation system', '推荐系统',
+      'speech recognition', '语音识别',
+      'image recognition', '图像识别',
+      'text generation', '文本生成',
+      'code generation', '代码生成'
+    ];
+
+    const text = `${article.title} ${article.summary}`.toLowerCase();
+    let score = 0;
+    const matchedKeywords: string[] = [];
+
+    for (const keyword of aiKeywords) {
+      if (text.includes(keyword.toLowerCase())) {
+        // 根据关键词重要性给分
+        if (['artificial intelligence', 'ai', '人工智能', 'machine learning', 'ml', '机器学习'].includes(keyword.toLowerCase())) {
+          score += 25; // 核心关键词高分
+        } else if (['deep learning', 'neural network', 'llm', '大语言模型'].includes(keyword.toLowerCase())) {
+          score += 20; // 重要关键词
+        } else {
+          score += 10; // 一般关键词
+        }
+        matchedKeywords.push(keyword);
+      }
+    }
+
+    // 限制最高分数
+    score = Math.min(score, 100);
+    
+    const isRelevant = score >= 50;
+    const reason = matchedKeywords.length > 0 
+      ? `匹配关键词: ${matchedKeywords.slice(0, 3).join(', ')}` 
+      : '未匹配到AI相关关键词';
+
+    return { isRelevant, score, reason };
   }
 
   /**
@@ -124,6 +275,9 @@ class GitHubDailyReportGenerator {
   private async collectRSSData(): Promise<ArticleData[]> {
     console.log('📰 抓取 RSS 资讯...');
     const articles: ArticleData[] = [];
+    let totalProcessed = 0;
+    let totalFiltered = 0;
+    let totalAdded = 0;
     
     const recommendedSources = [
       {
@@ -159,11 +313,6 @@ class GitHubDailyReportGenerator {
       {
         name: 'Engineering at Meta',
         url: 'https://engineering.fb.com/feed/',
-        category: '技术/开发'
-      },
-      {
-        name: 'Google Developers Blog',
-        url: 'https://developers.googleblog.com/feeds/posts/default',
         category: '技术/开发'
       },
       {
@@ -210,7 +359,27 @@ class GitHubDailyReportGenerator {
         name: 'Qwen Blog',
         url: 'https://qwenlm.github.io/blog/index.xml',
         category: 'AI/机器学习'
-      }
+      },
+      {
+        name:'量子位',
+        url: 'https://www.qbitai.com/feed',
+        category: 'AI/机器学习'
+      },
+      // {
+      //   name:'AI Research Paper Summaries (Papers With Code)',
+      //   url:'https://paperswithcode.com/rss/feed',
+      //   category: '论文'
+      // },
+      {
+        name:'NVIDIA AI Blog',
+        url:'https://blogs.nvidia.com/blog/category/generative-ai/feed/',
+        category: 'AI/机器学习'
+      },
+      {
+        name:'GitHub AI & ML Blog',
+        url:'https://github.blog/ai-and-ml/feed',
+        category: 'AI/机器学习'
+      },
     ];
 
     // 过滤数据源
@@ -235,15 +404,46 @@ class GitHubDailyReportGenerator {
             }
             const publishTime = item.pubDate.toISOString();
             if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < MAX_RSS_ARTICLES_PER_SOURCE) {
-              articles.push({
+              const article: ArticleData = {
                 title: item.title || '无标题',
                 original_summary: item.description?.substring(0, 200) + '...' || '暂无摘要',
                 summary: item.description?.substring(0, 200) + '...' || '暂无摘要',
                 source_url: item.link || source.url,
                 source_name: source.name,
                 publish_time: publishTime
-              });
-              addedCount++;
+              };
+              
+              totalProcessed++;
+              
+               // 对所有RSS源进行AI相关性分析（如果启用）
+                if (ENABLE_AI_RELEVANCE_FILTER) {
+                  console.log(`🔍 分析文章AI相关性: ${article.title.substring(0, 30)}...`);
+                  try {
+                    const relevanceResult = await this.analyzeAIRelevance(article);
+                    console.log(`   📊 相关性分数: ${relevanceResult.score}, 是否相关: ${relevanceResult.isRelevant}, 理由: ${relevanceResult.reason}`);
+                    
+                    if (relevanceResult.isRelevant) {
+                      articles.push(article);
+                      addedCount++;
+                      totalAdded++;
+                      console.log(`   ✅ 文章通过AI相关性检查，已添加`);
+                    } else {
+                      totalFiltered++;
+                      console.log(`   ❌ 文章与AI不相关，已过滤`);
+                    }
+                  } catch (error) {
+                    console.warn(`   ⚠️ AI相关性分析失败，默认添加文章:`, error);
+                    articles.push(article);
+                    addedCount++;
+                    totalAdded++;
+                  }
+                } else {
+                  // 禁用过滤时直接添加
+                  articles.push(article);
+                  addedCount++;
+                  totalAdded++;
+                  console.log(`   ✅ 过滤已禁用，直接添加: ${article.title.substring(0, 30)}...`);
+                }
             }
           }
           console.log(`✅ ${source.name}: 获取 ${addedCount} 篇文章（过去${HOURS_BACK}小时内）`);
@@ -260,6 +460,16 @@ class GitHubDailyReportGenerator {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
+    
+    // 显示过滤统计信息
+    console.log(`\n📊 RSS数据收集完成:`);
+    console.log(`   📝 总处理文章数: ${totalProcessed}`);
+    console.log(`   ✅ 通过筛选文章数: ${totalAdded}`);
+    if (ENABLE_AI_RELEVANCE_FILTER) {
+      console.log(`   ❌ AI相关性过滤数: ${totalFiltered}`);
+      console.log(`   📈 过滤效率: ${totalProcessed > 0 ? ((totalFiltered / totalProcessed) * 100).toFixed(1) : 0}%`);
+    }
+    console.log(`   📚 最终收集文章数: ${articles.length}`);
     
     return articles;
   }
@@ -295,41 +505,7 @@ class GitHubDailyReportGenerator {
     return articles;
   }
 
-  /**
-   * 获取GitHub项目数据
-   */
-  private async collectGitHubData(): Promise<ArticleData[]> {
-    console.log('🐙 抓取 GitHub 项目...');
-    const articles: ArticleData[] = [];
-    
-    const githubResult = await this.githubCrawler.crawl(
-      'artificial-intelligence+machine-learning',
-      'updated',
-      'desc',
-      Math.max(MAX_ARTICLES_PER_SOURCE * 2, 10)
-    );
-    if (githubResult.success && githubResult.repositories) {
-      let addedCount = 0;
-      const maxGithubProjects = Math.min(MAX_ARTICLES_PER_SOURCE, 2); // GitHub最多2个项目
-      for (const repo of githubResult.repositories) {
-        const publishTime = repo.updatedAt instanceof Date ? repo.updatedAt.toISOString() : new Date().toISOString();
-        if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < maxGithubProjects) {
-          articles.push({
-            title: repo.name || '无标题',
-            original_summary: repo.description || '暂无描述',
-            summary: repo.description || '暂无描述',
-            source_url: repo.url || `https://github.com/${repo.fullName}` || 'https://github.com',
-            source_name: 'GitHub',
-            publish_time: publishTime
-          });
-          addedCount++;
-        }
-      }
-    }
-    console.log(`✅ GitHub: 获取 ${articles.length} 个项目（过去${HOURS_BACK}小时内）`);
-    
-    return articles;
-  }
+
 
   /**
    * 收集今日数据
@@ -344,16 +520,12 @@ class GitHubDailyReportGenerator {
       articles.push(...rssArticles);
 
       // 2. 抓取 ArXiv 论文
-      if (INCLUDE_SOURCES === 'all' || INCLUDE_SOURCES === 'arxiv-github-only') {
+      if (INCLUDE_SOURCES === 'all' || INCLUDE_SOURCES === 'arxiv-only') {
         const arxivArticles = await this.collectArxivData();
         articles.push(...arxivArticles);
       }
 
-      // 3. 抓取 GitHub 项目
-      if (INCLUDE_SOURCES === 'all' || INCLUDE_SOURCES === 'arxiv-github-only') {
-        const githubArticles = await this.collectGitHubData();
-        articles.push(...githubArticles);
-      }
+
 
       console.log(`🎉 总共收集到 ${articles.length} 篇文章`);
       return articles;
