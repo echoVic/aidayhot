@@ -87,8 +87,20 @@ export class RSSCrawler extends BaseCrawler {
       });
 
       // 检查响应是否为有效的 XML/RSS 内容
-      if (response.body.includes('<!DOCTYPE html>') || response.body.includes('<html')) {
+      const bodyTrimmed = response.body.trim().toLowerCase();
+      
+      // 精确的HTML检测：只检查文档开头是否为HTML
+      if (bodyTrimmed.startsWith('<!doctype html') || 
+          bodyTrimmed.startsWith('<html ') ||
+          bodyTrimmed.startsWith('<html>')) {
         throw new Error('RSS源返回HTML页面，可能被防火墙或CDN拦截');
+      }
+      
+      // 检查是否包含XML声明或RSS/Atom根元素
+      if (!bodyTrimmed.includes('<?xml') && 
+          !bodyTrimmed.includes('<rss') && 
+          !bodyTrimmed.includes('<feed')) {
+        throw new Error('响应内容不是有效的RSS/Atom格式');
       }
       
       // 解析XML

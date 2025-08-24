@@ -392,7 +392,7 @@ class GitHubDailyReportGenerator {
       },
       {
         name:'GitHub AI & ML Blog',
-        url:'https://github.blog/ai-and-ml/feed',
+        url:'https://github.blog/ai-and-ml/feed/',
         category: 'AI/机器学习'
       },
     ];
