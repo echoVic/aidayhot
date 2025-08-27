@@ -9,6 +9,7 @@ import { ArxivCrawler } from '../src/crawlers/ArxivCrawler';
 import { RSSCrawler } from '../src/crawlers/RSSCrawler';
 import { createGitHubModelsAI } from '../src/services/githubModelsAI';
 import { createVolcengineAI } from '../src/services/volcengineAI';
+import { createIflowAI } from '../src/services/iflowAI';
 
 // 加载环境变量
 if (process.env.NODE_ENV !== 'production' && !process.env.GITHUB_ACTIONS) {
@@ -57,7 +58,7 @@ const HOURS_BACK = parseInt(process.env.HOURS_BACK || '24');
 const MAX_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_ARTICLES_PER_SOURCE || '3');
 const MAX_RSS_ARTICLES_PER_SOURCE = parseInt(process.env.MAX_RSS_ARTICLES_PER_SOURCE || '3'); // RSS源默认3篇
 const INCLUDE_SOURCES = process.env.INCLUDE_SOURCES || 'all';
-const AI_SERVICE = process.env.AI_SERVICE || 'volcengine'; // 'volcengine' 或 'github-models'
+const AI_SERVICE = process.env.AI_SERVICE || 'iflow'; // 'volcengine', 'github-models' 或 'iflow'
 const ENABLE_AI_RELEVANCE_FILTER = process.env.ENABLE_AI_RELEVANCE_FILTER !== 'false'; // 默认启用AI相关性过滤
 
 console.log(`⚙️ 配置参数:`);
@@ -126,6 +127,8 @@ class GitHubDailyReportGenerator {
       // 根据配置选择AI服务进行相关性分析
       if (AI_SERVICE === 'github-models') {
         return await this.analyzeAIRelevanceWithGitHubModels(article);
+      } else if (AI_SERVICE === 'iflow') {
+        return await this.analyzeAIRelevanceWithIflow(article);
       } else {
         return await this.analyzeAIRelevanceWithVolcengine(article);
       }
@@ -184,6 +187,29 @@ class GitHubDailyReportGenerator {
       return result;
     } catch (error) {
       console.warn('火山引擎相关性分析失败，使用关键词匹配', error);
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
+  }
+
+  /**
+   * 使用iflowAI分析AI相关性
+   */
+  private async analyzeAIRelevanceWithIflow(article: ArticleData): Promise<{ isRelevant: boolean; score: number; reason: string }> {
+    const iflowAI = createIflowAI();
+    
+    if (!iflowAI) {
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
+
+    try {
+      const result = await iflowAI.analyzeAIRelevance({
+        title: article.title,
+        summary: article.summary
+      });
+      
+      return result;
+    } catch (error) {
+      console.warn('iflowAI相关性分析失败，使用关键词匹配', error);
       return this.analyzeAIRelevanceWithKeywords(article);
     }
   }
@@ -545,6 +571,8 @@ class GitHubDailyReportGenerator {
     // 根据配置选择AI服务
     if (AI_SERVICE === 'github-models') {
       return await this.generateWithGitHubModels(articles);
+    } else if (AI_SERVICE === 'iflow') {
+      return await this.generateWithIflow(articles);
     } else {
       return await this.generateWithVolcengine(articles);
     }
@@ -637,6 +665,30 @@ class GitHubDailyReportGenerator {
   }
 
   /**
+   * 使用iflowAI生成摘要
+   */
+  private async generateWithIflow(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
+    const iflowAI = createIflowAI();
+    
+    if (iflowAI) {
+      console.log('🌟 使用iflowAI生成AI摘要...');
+      try {
+        const aiResult = await iflowAI.generateDailyReportSummary(articles);
+        return aiResult;
+      } catch (error) {
+        console.error('🌟 iflowAI摘要生成失败，使用备用方案:', error);
+      }
+    } else {
+      console.log('⚠️ 未配置iflowAI API，使用简单摘要生成');
+    }
+    
+    return {
+      summary: this.generateFallbackSummary(articles),
+      articles: articles
+    };
+  }
+
+  /**
    * 备用摘要生成
    */
   private generateFallbackSummary(articles: ArticleData[]): string {
@@ -664,7 +716,7 @@ class GitHubDailyReportGenerator {
 
 本日报通过自动化采集和AI分析生成，为您提供AI领域的每日精选资讯。
 
-💡 提示：配置火山引擎API密钥可获得更智能的摘要分析。`;
+💡 提示：配置API密钥可获得更智能的摘要分析。`;
   }
 
   /**

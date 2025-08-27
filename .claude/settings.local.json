@@ -4,7 +4,9 @@
       "Bash(pnpm build:*)",
       "Bash(npx tsc:*)",
       "Bash(sed:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }
