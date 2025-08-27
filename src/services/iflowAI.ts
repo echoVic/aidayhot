@@ -37,26 +37,48 @@ class IflowAIClient {
   }
 
   private async makeRequest(messages: Array<{role: string; content: string}>, maxTokens = 1000) {
-    const response = await fetch(`${this.baseURL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
+    try {
+      console.log(`🔍 iflowAI API调用 - 模型: ${this.model}, 消息数: ${messages.length}`);
+      
+      const requestBody = {
         model: this.model,
         messages,
         temperature: 0.7,
         max_tokens: maxTokens
-      })
-    });
+      };
+      
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-    if (!response.ok) {
-      throw new Error(`iflow API error: ${response.status} ${response.statusText}`);
+      console.log(`📡 iflowAI API响应状态: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ iflowAI API错误详情: ${response.status} ${response.statusText}`);
+        console.error(`❌ 错误响应内容: ${errorText}`);
+        throw new Error(`iflow API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data: IflowAIResponse = await response.json();
+      const content = data.choices[0]?.message?.content || '';
+      
+      if (!content) {
+        console.warn(`⚠️ iflowAI返回空内容, 完整响应:`, JSON.stringify(data, null, 2));
+      } else {
+        console.log(`✅ iflowAI成功返回内容，长度: ${content.length}`);
+      }
+      
+      return content;
+    } catch (error) {
+      console.error(`💥 iflowAI API调用异常:`, error);
+      throw error;
     }
-
-    const data: IflowAIResponse = await response.json();
-    return data.choices[0]?.message?.content || '';
   }
 
   /**
@@ -129,107 +151,164 @@ class IflowAIClient {
   }
 
   /**
-   * 生成文章摘要
+   * 为每篇文章生成详细中文总结，同时处理缺失的标题
    */
-  async generateArticleSummaries(articles: ArticleData[]): Promise<{ [url: string]: string }> {
-    const summaries: { [url: string]: string } = {};
-    const templates = getPromptTemplatesForService('iflow');
-
-    for (const article of articles) {
+  private async generateArticleSummaries(articles: any[]): Promise<any[]> {
+    const articlesWithSummaries = [];
+    
+    for (let i = 0; i < articles.length; i++) {
+      const article = articles[i];
+      console.log(`📖 处理第 ${i + 1}/${articles.length} 篇文章: ${article.title}`);
+      
+      let finalTitle = article.title;
+      let finalSummary = article.summary;
+      
       try {
-        const prompt = templates.articleSummary.user({
-          title: article.title,
-          content: article.summary
+        // 1. 生成摘要
+        const summaryPrompt = this.buildArticlePrompt(article);
+        const detailedSummary = await this.makeRequest([
+          {
+            role: 'user',
+            content: summaryPrompt
+          }
+        ]);
+        
+        if (detailedSummary) {
+          finalSummary = detailedSummary;
+        }
+        
+        // 2. 检查并生成标题（如果需要）
+        if (!article.title || article.title.trim() === '' || article.title === '无标题') {
+          console.log(`   🤖 为文章生成AI标题...`);
+          try {
+            const generatedTitle = await this.generateTitleFromSummary(finalSummary || article.original_summary || '');
+            if (generatedTitle && generatedTitle.trim() !== '') {
+              finalTitle = generatedTitle.replace(/["""]/g, ''); // 移除可能的引号
+              console.log(`   ✅ 生成标题: ${finalTitle}`);
+            } else {
+              finalTitle = '无标题';
+            }
+          } catch (titleError) {
+            console.error(`   ❌ 标题生成失败:`, titleError);
+            finalTitle = '无标题';
+          }
+        }
+        
+        articlesWithSummaries.push({
+          ...article,
+          title: finalTitle,
+          summary: finalSummary || article.summary || '暂无摘要'
         });
-
-        const summary = await this.makeRequest([
-          { role: 'system', content: templates.articleSummary.system },
-          { role: 'user', content: prompt }
-        ], 150);
-
-        summaries[article.source_url] = summary.trim();
+        
+        // 避免API调用过于频繁
+        if (i < articles.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       } catch (error) {
-        console.warn(`生成文章摘要失败: ${article.title}`, error);
-        summaries[article.source_url] = article.summary;
+        console.error(`❌ 文章 "${article.title}" 处理失败:`, error);
+        articlesWithSummaries.push({
+          ...article,
+          title: finalTitle || '无标题',
+          summary: article.summary || '暂无摘要'
+        });
       }
     }
-
-    return summaries;
+    
+    return articlesWithSummaries;
   }
 
   /**
-   * 生成整体摘要
+   * 基于所有文章总结生成整体日报摘要
    */
-  async generateOverallSummary(articles: ArticleData[], summaries: { [url: string]: string }): Promise<string> {
+  private async generateOverallSummary(articles: any[]): Promise<string> {
+    try {
+      const prompt = this.buildDailyPrompt(articles);
+      const response = await this.makeRequest([
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]);
+      
+      return response || this.generateFallbackSummary(articles);
+    } catch (error) {
+      console.error('🔥 日报整体摘要生成失败:', error);
+      return this.generateFallbackSummary(articles);
+    }
+  }
+
+  /**
+   * 构建单篇文章的提示词
+   */
+  private buildArticlePrompt(article: any): string {
+    const templates = getPromptTemplatesForService('iflow');
+    return templates.articleSummary.user({
+      title: article.title,
+      content: `文章链接：${article.source_url}\n来源：${article.source_name}\n初步摘要：${article.summary}`
+    });
+  }
+
+  /**
+   * 从摘要中生成标题
+   */
+  async generateTitleFromSummary(summary: string): Promise<string> {
+    try {
+      const templates = getPromptTemplatesForService('iflow');
+      const prompt = templates.titleGeneration.fromSummary(summary);
+
+      const title = await this.makeRequest([
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]);
+      
+      return title || 'AI总结生成标题'; // 如果生成失败，返回一个默认标题
+    } catch (error) {
+      console.error('🔥 从摘要生成标题失败:', error);
+      return 'AI总结生成标题';
+    }
+  }
+
+  /**
+   * 构建日报整体摘要的提示词
+   * 注意：这里的 article.summary 已经是 AI 生成的详细总结，不是原始摘要
+   */
+  private buildDailyPrompt(articles: any[]): string {
     const templates = getPromptTemplatesForService('iflow');
     const articlesForPrompt = articles.map(article => ({
       title: article.title,
-      summary: summaries[article.source_url] || article.summary,
+      summary: article.summary,
       source_name: article.source_name
     }));
-
-    const prompt = templates.dailySummary.user({
+    
+    return templates.dailySummary.user({
       articles: articlesForPrompt,
       articlesCount: articles.length
     });
-
-    const summary = await this.makeRequest([
-      { role: 'system', content: templates.systemRoles.summaryGenerator },
-      { role: 'user', content: prompt }
-    ], 400);
-
-    return summary.trim();
   }
 
   /**
-   * 生成日报标题
+   * 生成 AI 日报摘要（两步式处理）
    */
-  async generateTitle(articles: ArticleData[]): Promise<string> {
-    const templates = getPromptTemplatesForService('iflow');
-    const categories = [...new Set(articles.map(a => a.source_name))];
-
-    const prompt = templates.titleGeneration.fromArticles({
-      articlesCount: articles.length,
-      categories
-    });
-
-    const title = await this.makeRequest([
-      { role: 'system', content: templates.systemRoles.titleGenerator },
-      { role: 'user', content: prompt }
-    ], 100);
-
-    return title.trim() || `${new Date().toLocaleDateString('zh-CN')} AI资讯日报`;
-  }
-
-  /**
-   * 生成完整的日报摘要
-   */
-  async generateDailyReportSummary(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
-    if (articles.length === 0) {
-      return {
-        summary: `${new Date().toLocaleDateString('zh-CN')} 暂无AI相关资讯`,
-        articles: []
-      };
-    }
-
+  async generateDailyReportSummary(articles: any[]): Promise<{ summary: string; articles: any[] }> {
     try {
-      console.log('🤖 使用iflowAI生成日报摘要...');
+      console.log('📝 第一步：为每篇文章生成详细中文总结...');
       
-      const summaries = await this.generateArticleSummaries(articles);
-      const overallSummary = await this.generateOverallSummary(articles, summaries);
-      const title = await this.generateTitle(articles);
-
-      const enhancedArticles = articles.map(article => ({
-        ...article,
-        aiSummary: summaries[article.source_url] || article.summary
-      }));
-
+      // 第一步：为每篇文章生成详细总结
+      const articlesWithSummaries = await this.generateArticleSummaries(articles);
+      
+      console.log('📝 第二步：基于所有文章总结生成日报摘要...');
+      
+      // 第二步：基于所有文章总结生成整体日报摘要
+      const dailySummary = await this.generateOverallSummary(articlesWithSummaries);
+      
       return {
-        summary: `# ${title}\n\n${overallSummary}`,
-        articles: enhancedArticles
+        summary: dailySummary,
+        articles: articlesWithSummaries
       };
     } catch (error) {
-      console.error('iflowAI 摘要生成失败:', error);
+      console.error('🔥 iflowAI 处理失败:', error);
       return {
         summary: this.generateFallbackSummary(articles),
         articles: articles
@@ -251,19 +330,21 @@ class IflowAIClient {
       .map(([source, count]) => `${source}(${count}条)`)
       .join('、');
 
-    return `${new Date().toLocaleDateString('zh-CN')} AI资讯日报
+    const today = new Date().toLocaleDateString('zh-CN');
+    
+    return `${today} AI资讯日报
 
 今日共收集到 ${articles.length} 条AI相关资讯，来源包括：${sourceStats}。
 
 主要内容涵盖：
 • 最新的AI技术研究进展
-• 开源项目和工具更新
+• 开源项目和工具更新  
 • 行业动态和产品发布
 • 学术论文和技术博客
 
 本日报通过自动化采集和AI分析生成，为您提供AI领域的每日精选资讯。
 
-💡 已使用iflow.cn 星火大模型生成智能摘要。`;
+💡 提示：配置iflowAI API密钥可获得更智能的摘要分析。`;
   }
 }
 

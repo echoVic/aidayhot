@@ -40,7 +40,15 @@ export interface PromptTemplates {
 export const promptTemplates: PromptTemplates = {
   // 文章摘要生成
   articleSummary: {
-    system: `你是一个专业的技术文章摘要生成器。请为以下文章生成一个简洁、准确的中文摘要，突出关键技术点和创新之处。摘要应该：
+    system: `你是一个专业的技术文章摘要生成器。你必须重新组织和总结文章内容，生成全新的中文摘要。
+
+核心要求：
+1. 绝对禁止直接复制、粘贴或重复原文内容
+2. 必须用你自己的话重新表达和组织信息
+3. 如果原文包含HTML标签、图片链接等，请完全忽略
+4. 专注于提取和重新表述核心技术信息
+
+摘要标准：
 1. 控制在50-80字以内（更加精炼）
 2. 突出文章的核心观点、技术要点或重要发现
 3. 使用专业但易懂的中文表达
@@ -49,21 +57,22 @@ export const promptTemplates: PromptTemplates = {
 6. 使用简洁的表达，避免冗长的句子
 7. 避免重复文章标题内容`,
     
-    user: ({ title, content }) => `请阅读以下文章内容，并生成一份简洁的中文总结：
+    user: ({ title, content }) => `请仔细阅读以下文章，用你自己的话重新组织和总结，生成一个全新的中文摘要：
 
 文章标题：${title}
 文章内容：${content}
 
-要求：
-1. 生成50-80字的简洁中文总结（更加精炼）
-2. 突出文章的核心观点、技术要点或重要发现
-3. 使用专业但易懂的中文表达
-4. 如果是技术文章，请解释关键技术概念
-5. 如果是新闻报道，请突出重要事件和影响
-6. 不要仅仅翻译或改写，要基于完整内容生成新的总结
-7. 使用简洁的表达，避免冗长的句子
+严格要求：
+1. 必须用你自己的话重新表达，绝对不能直接复制原文
+2. 忽略所有HTML标签、图片链接、格式标记
+3. 生成50-80字的简洁中文总结（更加精炼）
+4. 突出文章的核心观点、技术要点或重要发现
+5. 使用专业但易懂的中文表达
+6. 如果原文是英文，请翻译并总结为中文
+7. 如果原文已经是中文，请重新组织语言表达
+8. 直接输出摘要内容，不要添加前缀
 
-请生成简洁的中文总结：`
+请生成全新的中文摘要：`
   },
   
   // 日报整体摘要生成
@@ -85,7 +94,8 @@ ${articlesText}
 5. 如果有重大技术突破或产品发布，请特别强调
 6. 体现AI领域的整体发展方向和热点话题
 7. 注意：输入的已经是AI生成的详细总结，请基于这些高质量总结进行二次提炼
-8. 使用简洁的要点形式，避免冗长的句子
+8. 使用自然的段落形式，不要添加标题，不要使用列表或要点格式
+9. 直接输出连贯的段落文字，避免【】符号和项目符号
 
 请生成日报摘要：`;
     }
@@ -155,86 +165,12 @@ ${summary}
   }
 };
 
-/**
- * iflow 专用提示词模板
- * 针对 iflow AI 服务的特殊优化
- */
-export const iflowPromptTemplates: PromptTemplates = {
-  // 文章摘要生成（简化版）
-  articleSummary: {
-    system: '你是一个专业的技术文章摘要生成器，专注于生成简洁准确的中文摘要。',
-    user: ({ title, content }: { title: string; content: string }) => `请为以下文章生成一个简洁的中文摘要（50-80字），突出技术要点：
 
-标题: ${title}
-内容: ${content}
-
-请直接返回摘要文本，不要添加标题或其他格式。`
-  },
-  
-  // 日报整体摘要生成
-  dailySummary: {
-    user: ({ articles, articlesCount }: { articles: Array<{ title: string; summary: string; source_name: string }>; articlesCount: number }) => {
-      const articlesText = articles.map((article, index) => 
-        `${index + 1}. 【${article.source_name}】${article.title}\n   摘要: ${article.summary}`
-      ).join('\n\n');
-      
-      return `基于以下 ${articlesCount} 篇AI相关文章，生成一份今日AI日报的技术趋势总结（80-120字）：
-
-${articlesText}
-
-请从以下角度总结：
-1. 主要技术突破点
-2. 新兴趋势和方向
-3. 对行业的潜在影响
-
-请以清晰简洁的中文段落形式呈现。`;
-    }
-  },
-  
-  // 标题生成
-  titleGeneration: {
-    fromSummary: (summary: string) => `基于以下摘要，生成一个简洁有力的中文日报标题，体现技术前瞻性和专业感：
-
-${summary}`,
-    fromArticles: ({ articlesCount, categories }: { articlesCount: number; categories: string[] }) => 
-      `基于 ${articlesCount} 篇来自 ${categories.slice(0, 3).join('、')}${categories.length > 3 ? '等' : ''} 领域的AI相关文章，生成一个简洁有力的中文日报标题，体现技术前瞻性和专业感。`
-  },
-  
-  // AI相关性分析
-  aiRelevanceAnalysis: {
-    user: ({ title, summary }: { title: string; summary: string }) => `请分析以下文章是否与人工智能(AI)、机器学习(ML)、深度学习、自然语言处理、计算机视觉等相关。
-
-标题: ${title}
-摘要: ${summary}
-
-请以JSON格式回复，包含以下字段：
-{
-  "isRelevant": boolean, // 是否与AI相关
-  "score": number, // 相关度分数(0-100)
-  "reason": string // 简短的判断理由
-}
-
-只返回JSON，不要添加其他解释。`
-  },
-  
-  // 系统角色定义
-  systemRoles: {
-    newsEditor: '你是一个专业的AI新闻编辑，专注于生成简洁、准确、专业的中文总结。',
-    titleGenerator: '你是一个专业的技术日报标题生成器，专注于生成简洁有力的标题。',
-    summaryGenerator: '你是一个专业的技术日报编辑，专注于生成简洁的日报总结。'
-  }
-};
 
 /**
  * 获取适合特定AI服务的提示词模板
+ * 现在所有服务都使用统一的模板
  */
-export function getPromptTemplatesForService(serviceName: 'volcengine' | 'github-models' | 'iflow') {
-  switch (serviceName) {
-    case 'iflow':
-      return iflowPromptTemplates;
-    case 'volcengine':
-    case 'github-models':
-    default:
-      return promptTemplates;
-  }
+export function getPromptTemplatesForService(serviceName: 'volcengine' | 'github-models' | 'iflow'): PromptTemplates {
+  return promptTemplates;
 }

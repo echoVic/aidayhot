@@ -36,7 +36,7 @@ export class VolcengineAI {
     this.endpoint = baseEndpoint.endsWith('/chat/completions') 
       ? baseEndpoint 
       : `${baseEndpoint}/chat/completions`;
-    this.model = config.model || 'ep-20250806144921-5qqcz'; // 默认模型，可根据实际情况调整
+    this.model = config.model || 'ep-20250823130253-cglsf'; // 默认模型，可根据实际情况调整
   }
 
   /**
