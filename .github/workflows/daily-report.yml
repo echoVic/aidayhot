@@ -82,6 +82,9 @@ jobs:
         VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
         VOLCENGINE_ENDPOINT: ${{ secrets.VOLCENGINE_ENDPOINT }}
         VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
+        # iflowAI 配置
+        IFLOW_API_KEY: ${{ secrets.IFLOW_API_KEY }}
+        IFLOW_MODEL: ${{ secrets.IFLOW_MODEL }}
         # GitHub Models 配置 (可选)
         AI_SERVICE: ${{ github.event.inputs.ai_service || secrets.AI_SERVICE || 'iflow' }}
         GITHUB_MODELS_MODEL: ${{ secrets.GITHUB_MODELS_MODEL || 'gpt-4o-mini' }}
@@ -94,6 +97,9 @@ jobs:
         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         VOLCENGINE_API_KEY: ${{ secrets.VOLCENGINE_API_KEY }}
         VOLCENGINE_MODEL: ${{ secrets.VOLCENGINE_MODEL }}
+        # iflowAI 配置
+        IFLOW_API_KEY: ${{ secrets.IFLOW_API_KEY }}
+        IFLOW_MODEL: ${{ secrets.IFLOW_MODEL }}
         # AI服务配置
         AI_SERVICE: ${{ github.event.inputs.ai_service || secrets.AI_SERVICE || 'iflow' }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
