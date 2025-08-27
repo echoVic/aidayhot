@@ -24,8 +24,6 @@ function getBaseUrl(req: Request): string {
 }
 
 
-interface DailyReportRow extends Report {}
-
 export async function GET(request: NextRequest): Promise<Response> {
   const startTime = Date.now();
   
@@ -60,7 +58,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     });
   }
 
-  const reports: DailyReportRow[] = (data as unknown as DailyReportRow[]) || [];
+  const reports: Report[] = (data as unknown as Report[]) || [];
   const now = new Date();
   
   // 如果没有数据，返回空的 RSS feed
@@ -100,7 +98,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     // 组装富文本内容（content:encoded）- 只显示前5篇文章，减少RSS条目大小
     const articlesHtml = (report.content?.articles || [])
       .slice(0, 10)
-      .map((a, idx) => {
+      .map((a: any, idx: number) => {
         const safeTitle = escapeXml(a.title || '无标题');
         const safeSource = escapeXml(a.source || '');
         const safeUrl = a.url ? escapeXml(a.url) : '#';

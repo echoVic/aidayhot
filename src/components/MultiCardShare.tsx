@@ -7,9 +7,7 @@ import { CardData, Report, ShareComponentProps } from '../types';
 import { formatDateForShare } from '../utils/shareUtils';
 import ShareModal from './ShareModal';
 
-interface MultiCardShareProps extends ShareComponentProps {}
-
-const MultiCardShare: React.FC<MultiCardShareProps> = ({ report, isOpen, onClose }) => {
+const MultiCardShare: React.FC<ShareComponentProps> = ({ report, isOpen, onClose }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageFormat, setImageFormat] = useState<'png' | 'jpeg' | 'webp' | 'svg'>('png');
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
