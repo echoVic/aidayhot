@@ -1,24 +1,13 @@
 'use client';
 
 import { toJpeg, toPng, toSvg } from 'html-to-image';
-import { Download, FileText, Image, Share2 } from 'lucide-react';
+import { Download } from 'lucide-react';
 import React, { useRef, useState } from 'react';
-import { NewsItem, Report } from './DailyReportCard';
-import ShareModal from './ShareModal';
+import { CardData, Report, ShareComponentProps } from '../types';
 import { formatDateForShare } from '../utils/shareUtils';
+import ShareModal from './ShareModal';
 
-interface MultiCardShareProps {
-  report: Report;
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-interface CardData {
-  id: string;
-  title: string;
-  content: NewsItem[];
-  type: 'summary' | 'articles';
-}
+interface MultiCardShareProps extends ShareComponentProps {}
 
 const MultiCardShare: React.FC<MultiCardShareProps> = ({ report, isOpen, onClose }) => {
   const [isGenerating, setIsGenerating] = useState(false);

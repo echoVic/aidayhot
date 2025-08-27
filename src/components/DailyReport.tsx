@@ -5,7 +5,8 @@ import { useMemoizedFn } from 'ahooks';
 import { CalendarDays, Home } from 'lucide-react';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
-import DailyReportCard, { NewsItem, Report } from './DailyReportCard';
+import DailyReportCard from './DailyReportCard';
+import { NewsItem, Report } from '../types';
 import ErrorBoundary from './ErrorBoundary';
 import ShareDailyReport from './ShareDailyReport';
 

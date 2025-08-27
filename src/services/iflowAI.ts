@@ -2,29 +2,10 @@
  * iflow.cn AI 服务集成
  */
 
+import { AIResponse, ArticleData, RelevanceAnalysis } from '../types';
 import { getPromptTemplatesForService } from './prompts';
 
-interface ArticleData {
-  title: string;
-  summary: string;
-  source_url: string;
-  source_name: string;
-  publish_time: string;
-}
-
-interface IflowAIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-}
-
-interface RelevanceAnalysis {
-  isRelevant: boolean;
-  score: number;
-  reason: string;
-}
+interface IflowAIResponse extends AIResponse {}
 
 class IflowAIClient {
   private apiKey: string;

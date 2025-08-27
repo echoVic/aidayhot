@@ -3,26 +3,12 @@
  * 用于生成 AI 日报摘要
  */
 
+import { AIResponse, AIServiceConfig, ArticleData, ChatMessage } from '../types';
 import { getPromptTemplatesForService } from './prompts';
 
-interface VolcengineConfig {
-  apiKey: string;
-  endpoint?: string;
-  model?: string;
-}
+interface VolcengineConfig extends AIServiceConfig {}
 
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface ChatResponse {
-  choices: {
-    message: {
-      content: string;
-    };
-  }[];
-}
+interface ChatResponse extends AIResponse {}
 
 export class VolcengineAI {
   private apiKey: string;
@@ -42,7 +28,7 @@ export class VolcengineAI {
   /**
    * 生成 AI 日报摘要（两步式处理）
    */
-  async generateDailyReportSummary(articles: any[]): Promise<{ summary: string; articles: any[] }> {
+  async generateDailyReportSummary(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
     try {
       console.log('📝 第一步：为每篇文章生成详细中文总结...');
       

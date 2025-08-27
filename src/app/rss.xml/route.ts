@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { getSupabaseAdmin } from '../../lib/supabase';
+import { Report } from '../../types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,33 +23,8 @@ function getBaseUrl(req: Request): string {
   return `${proto}://${host}`.replace(/\/$/, '');
 }
 
-// 日报类型定义（与 scripts/generateDailyReport.ts 中的结构对齐）
-interface DailyReportArticle {
-  title: string;
-  url: string;
-  summary?: string;      // 原始简短摘要
-  aiSummary?: string;    // AI 生成的详细中文总结（Markdown 原文，这里当作纯文本处理）
-  publishTime?: string;
-  source?: string;
-}
 
-interface DailyReportContent {
-  articles: DailyReportArticle[];
-  metadata: {
-    totalArticles: number;
-    generatedAt?: string;
-    sources: string[];
-  };
-}
-
-interface DailyReportRow {
-  id: string;
-  date: string; // YYYY-MM-DD
-  content: DailyReportContent;
-  summary: string; // AI 生成的日报总结（Markdown 原文，这里当作纯文本处理）
-  created_at?: string;
-  updated_at?: string;
-}
+interface DailyReportRow extends Report {}
 
 export async function GET(request: NextRequest): Promise<Response> {
   const startTime = Date.now();

@@ -3,36 +3,9 @@
 import { CalendarDays, ChevronDown, ChevronRight, Clock, ExternalLink } from 'lucide-react';
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import { NewsItem, Report } from '../types';
 import OptimizedImage from './OptimizedImage';
 import ShareButton from './ShareButton';
-
-// 类型定义
-export interface NewsItem {
-  title: string;
-  url: string;
-  publishTime: string;
-  aiSummary?: string;
-  source: string;
-  imageUrl?: string;
-  tags?: string[];
-}
-
-interface DailyReportContent {
-  articles: NewsItem[];
-  metadata: {
-    totalArticles: number;
-    sources: string[];
-    categories?: string[];
-    keywords?: string[];
-  };
-}
-
-export interface Report {
-  id?: string;
-  date: string;
-  summary: string;
-  content: DailyReportContent;
-}
 
 // React.memo 优化的日报卡片组件
 interface DailyReportCardProps {

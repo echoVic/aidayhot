@@ -30,13 +30,7 @@ interface OptimizedImageProps {
   maxRetries?: number;
 }
 
-interface ImageState {
-  isLoading: boolean;
-  isLoaded: boolean;
-  hasError: boolean;
-  retryCount: number;
-  currentSrc: string;
-}
+
 
 /**
  * Optimized image component with advanced features
@@ -65,10 +59,10 @@ export default function OptimizedImage({
   retryOnError = true,
   maxRetries = 3,
 }: OptimizedImageProps) {
-  const [imageState, setImageState] = useState<ImageState>({
-    isLoading: !priority,
-    isLoaded: false,
-    hasError: false,
+  const [imageState, setImageState] = useState({
+    loading: !priority,
+    loaded: false,
+    error: false,
     retryCount: 0,
     currentSrc: src,
   });
@@ -102,9 +96,9 @@ export default function OptimizedImage({
   const handleLoad = useMemoizedFn(() => {
     setImageState(prev => ({
       ...prev,
-      isLoading: false,
-      isLoaded: true,
-      hasError: false,
+      loading: false,
+      loaded: true,
+      error: false,
     }));
     onLoad?.();
   });
@@ -120,14 +114,14 @@ export default function OptimizedImage({
       setImageState(prev => ({
         ...prev,
         retryCount: prev.retryCount + 1,
-        hasError: false,
-        isLoading: true,
+        error: false,
+        loading: true,
       }));
     } else {
       setImageState(prev => ({
         ...prev,
-        isLoading: false,
-        hasError: true,
+        loading: false,
+        error: true,
       }));
       onError?.();
     }
@@ -144,7 +138,7 @@ export default function OptimizedImage({
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setImageState(prev => ({ ...prev, isLoading: true }));
+            setImageState(prev => ({ ...prev, loading: true }));
             observerRef.current?.disconnect();
           }
         });
@@ -166,12 +160,12 @@ export default function OptimizedImage({
       setImageState(prev => ({
         ...prev,
         currentSrc: optimizedSrc,
-        isLoading: !imageState.isLoaded,
+        loading: !imageState.loaded,
       }));
     };
 
     updateSrc();
-  }, [src, getOptimizedSrc, imageState.isLoaded]);
+  }, [src, getOptimizedSrc, imageState.loaded]);
 
   // Generate responsive sizes if not provided
   const responsiveSizes = sizes || (responsive ?
@@ -185,13 +179,13 @@ export default function OptimizedImage({
   // Component classes
   const imageClasses = [
     className,
-    fadeIn && imageState.isLoaded ? 'transition-opacity duration-300 opacity-100' : '',
-    fadeIn && imageState.isLoading ? 'opacity-0' : '',
-    imageState.hasError ? 'opacity-50' : '',
+    fadeIn && imageState.loaded ? 'transition-opacity duration-300 opacity-100' : '',
+    fadeIn && imageState.loading ? 'opacity-0' : '',
+    imageState.error ? 'opacity-50' : '',
   ].filter(Boolean).join(' ');
 
   // Error fallback
-  if (imageState.hasError) {
+  if (imageState.error) {
     return (
       <div
         className={`bg-gray-200 flex items-center justify-center ${className}`}
@@ -207,7 +201,7 @@ export default function OptimizedImage({
 
   return (
     <div ref={imageRef} className="relative">
-      {imageState.isLoading && (
+      {imageState.loading && (
         <div
           className="absolute inset-0 bg-gray-200 animate-pulse"
           style={{ width, height }}

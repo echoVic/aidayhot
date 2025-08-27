@@ -5,11 +5,11 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { ArxivCrawler } from '../src/crawlers/ArxivCrawler';
-
 import { RSSCrawler } from '../src/crawlers/RSSCrawler';
 import { createGitHubModelsAI } from '../src/services/githubModelsAI';
-import { createVolcengineAI } from '../src/services/volcengineAI';
 import { createIflowAI } from '../src/services/iflowAI';
+import { createVolcengineAI } from '../src/services/volcengineAI';
+import { ArticleData, DailyReportData } from '../src/types';
 
 // 加载环境变量
 if (process.env.NODE_ENV !== 'production' && !process.env.GITHUB_ACTIONS) {
@@ -95,19 +95,7 @@ function shouldIncludeSource(category: string, includeType: string): boolean {
   }
 }
 
-interface ArticleData {
-  title: string;
-  summary: string;
-  original_summary?: string; // 原始简短摘要（爬虫获取）
-  source_url: string;
-  source_name: string;
-  publish_time: string;
-}
 
-interface DailyReportData {
-  introduction: string;
-  items: ArticleData[];
-}
 
 class GitHubDailyReportGenerator {
   private arxivCrawler: ArxivCrawler;
@@ -150,10 +138,11 @@ class GitHubDailyReportGenerator {
       return this.analyzeAIRelevanceWithKeywords(article);
     }
 
-    const githubModelsAI = createGitHubModelsAI({
-      token: githubToken,
-      model: githubModel
-    });
+    const githubModelsAI = createGitHubModelsAI();
+
+    if (!githubModelsAI) {
+      return this.analyzeAIRelevanceWithKeywords(article);
+    }
 
     try {
       const result = await githubModelsAI.analyzeAIRelevance({
@@ -582,62 +571,24 @@ class GitHubDailyReportGenerator {
    * 使用GitHub Models生成摘要
    */
   private async generateWithGitHubModels(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
-    try {
-      const githubToken = process.env.GITHUB_TOKEN || process.env.GITHUB_MODELS_TOKEN;
-      const githubModel = process.env.GITHUB_MODELS_MODEL || 'gpt-4o-mini';
-      
-      if (!githubToken) {
-        console.log('⚠️ 未配置GitHub Token，使用备用摘要生成');
-        return {
-          summary: this.generateFallbackSummary(articles),
-          articles: articles
-        };
+    const githubModelsAI = createGitHubModelsAI();
+    
+    if (githubModelsAI) {
+      console.log('🤖 使用GitHub Models生成AI摘要...');
+      try {
+        const aiResult = await githubModelsAI.generateDailyReportSummary(articles);
+        return aiResult;
+      } catch (error) {
+        console.error('🤖 GitHub Models摘要生成失败，使用备用方案:', error);
       }
-
-      console.log(`🤖 使用GitHub Models (${githubModel}) 生成AI摘要...`);
-      
-      const githubModelsAI = createGitHubModelsAI({
-        token: githubToken,
-        model: githubModel
-      });
-
-      // 转换文章格式以适配GitHub Models AI
-      const convertedArticles = articles.map(article => ({
-        title: article.title,
-        description: article.summary,
-        content: article.original_summary || article.summary,
-        url: article.source_url,
-        category: '技术资讯',
-        source: article.source_name,
-        publishTime: article.publish_time
-      }));
-
-      // 生成文章摘要
-      const summaries = await githubModelsAI.generateArticleSummaries(convertedArticles);
-      
-      // 生成整体摘要
-      const overallSummary = await githubModelsAI.generateOverallSummary(convertedArticles, summaries);
-      
-      // 生成标题
-      const title = await githubModelsAI.generateTitle(convertedArticles);
-
-      // 组装结果
-      const enhancedArticles = articles.map(article => ({
-        ...article,
-        aiSummary: summaries[article.source_url] || article.summary
-      }));
-
-      return {
-        summary: `# ${title}\n\n${overallSummary}`,
-        articles: enhancedArticles
-      };
-    } catch (error) {
-      console.error('🤖 GitHub Models摘要生成失败，使用备用方案:', error);
-      return {
-        summary: this.generateFallbackSummary(articles),
-        articles: articles
-      };
+    } else {
+      console.log('⚠️ 未配置GitHub Models API，使用简单摘要生成');
     }
+    
+    return {
+      summary: this.generateFallbackSummary(articles),
+      articles: articles
+    };
   }
 
   /**

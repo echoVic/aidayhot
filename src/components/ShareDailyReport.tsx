@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, ButtonGroup } from '@heroui/react';
+import { Button } from '@heroui/react';
 import { toJpeg, toPng, toSvg } from 'html-to-image';
 import { FileText, Image, Link2, MessageCircle, Twitter } from 'lucide-react';
 import React, { useRef, useState } from 'react';
+import { Report } from '../types';
 import {
   copyToClipboard,
   downloadTextFile,
@@ -12,7 +13,6 @@ import {
   generateShareUrl,
   shareToSocial
 } from '../utils/shareUtils';
-import { Report } from './DailyReportCard';
 import ShareModal from './ShareModal';
 
 interface ShareDailyReportProps {

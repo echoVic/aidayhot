@@ -3,12 +3,9 @@
 import { Modal, ModalBody, ModalContent, ModalHeader } from '@heroui/react';
 import { X } from 'lucide-react';
 import React from 'react';
+import { ModalProps } from '../types';
 
-interface ShareModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-  title?: string;
+interface ShareModalProps extends ModalProps {
   maxWidth?: string;
 }
 

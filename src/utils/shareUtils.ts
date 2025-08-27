@@ -1,4 +1,4 @@
-import { Report } from '../components/DailyReportCard';
+import { Report } from '../types';
 
 /**
  * 格式化日期为中文格式

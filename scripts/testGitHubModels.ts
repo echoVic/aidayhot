@@ -39,32 +39,32 @@ async function testGitHubModels() {
   
   try {
     // 创建GitHub Models AI实例
-    const githubModelsAI = createGitHubModelsAI({
-      token: githubToken,
-      model: githubModel
-    });
+    const githubModelsAI = createGitHubModelsAI();
+    
+    if (!githubModelsAI) {
+      console.error('❌ GitHub Models AI 实例创建失败');
+      process.exit(1);
+    }
     
     console.log('✅ GitHub Models AI 实例创建成功');
     
-    // 测试数据
+    // 测试数据 - 使用ArticleData格式
     const testArticles = [
       {
         title: 'OpenAI发布GPT-4 Turbo新版本',
-        description: 'OpenAI宣布推出GPT-4 Turbo的最新版本，具有更强的推理能力和更低的成本。',
-        content: 'OpenAI今天宣布推出GPT-4 Turbo的最新版本，这个版本在保持高质量输出的同时，显著降低了API调用成本。新版本还增强了代码生成和数学推理能力。',
-        url: 'https://example.com/openai-gpt4-turbo',
-        category: 'AI/机器学习',
-        source: 'OpenAI官方博客',
-        publishTime: new Date().toISOString()
+        summary: 'OpenAI宣布推出GPT-4 Turbo的最新版本，具有更强的推理能力和更低的成本。',
+        original_summary: 'OpenAI今天宣布推出GPT-4 Turbo的最新版本，这个版本在保持高质量输出的同时，显著降低了API调用成本。新版本还增强了代码生成和数学推理能力。',
+        source_url: 'https://example.com/openai-gpt4-turbo',
+        source_name: 'OpenAI官方博客',
+        publish_time: new Date().toISOString()
       },
       {
         title: 'GitHub Copilot集成新的AI模型',
-        description: 'GitHub Copilot现在支持多种AI模型，为开发者提供更好的代码建议。',
-        content: 'GitHub宣布Copilot现在集成了多种先进的AI模型，包括GPT-4和Claude，开发者可以根据需要选择不同的模型来获得最佳的代码建议和自动补全体验。',
-        url: 'https://example.com/github-copilot-update',
-        category: '技术/开发',
-        source: 'GitHub官方博客',
-        publishTime: new Date().toISOString()
+        summary: 'GitHub Copilot现在支持多种AI模型，为开发者提供更好的代码建议。',
+        original_summary: 'GitHub宣布Copilot现在集成了多种先进的AI模型，包括GPT-4和Claude，开发者可以根据需要选择不同的模型来获得最佳的代码建议和自动补全体验。',
+        source_url: 'https://example.com/github-copilot-update',
+        source_name: 'GitHub官方博客',
+        publish_time: new Date().toISOString()
       }
     ];
     
@@ -80,13 +80,13 @@ async function testGitHubModels() {
     console.log('\n2️⃣ 测试批量文章摘要:');
     const batchSummaries = await githubModelsAI.generateArticleSummaries(testArticles);
     console.log(`✅ 批量摘要生成成功:`);
-    Object.entries(batchSummaries).forEach(([url, summary], index) => {
-      console.log(`   文章${index + 1}: ${summary.substring(0, 100)}...`);
+    batchSummaries.forEach((article, index) => {
+      console.log(`   文章${index + 1}: ${article.summary?.substring(0, 100)}...`);
     });
     
     // 测试整体摘要
     console.log('\n3️⃣ 测试整体日报摘要:');
-    const overallSummary = await githubModelsAI.generateOverallSummary(testArticles, batchSummaries);
+    const overallSummary = await githubModelsAI.generateOverallSummary(batchSummaries);
     console.log(`✅ 整体摘要生成成功:`);
     console.log(`   ${overallSummary}`);
     

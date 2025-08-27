@@ -1,14 +1,5 @@
 import { supabase } from './supabase';
 
-// 分页结果接口
-interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-  hasMore: boolean;
-  page: number;
-  pageSize: number;
-}
-
 // 通用数据库服务类
 class DatabaseService {
   // 通用查询方法

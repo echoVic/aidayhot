@@ -1,19 +1,5 @@
+import { AIResponse, ArticleData, ChatMessage } from '../types';
 import { getPromptTemplatesForService } from './prompts';
-
-// 定义Article接口，兼容现有代码结构
-interface Article {
-  id?: string;
-  title: string;
-  description?: string;
-  content?: string;
-  url: string;
-  category?: string;
-  author?: string;
-  publishTime?: string;
-  tags?: string[];
-  source?: string;
-  summary?: string; // AI生成的文章摘要
-}
 
 interface GitHubModelsConfig {
   token: string;
@@ -21,18 +7,7 @@ interface GitHubModelsConfig {
   endpoint?: string;
 }
 
-interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface ChatCompletionResponse {
-  choices: {
-    message: {
-      content: string;
-    };
-  }[];
-}
+interface ChatCompletionResponse extends AIResponse {}
 
 export class GitHubModelsAI {
   private token: string;
@@ -142,7 +117,7 @@ export class GitHubModelsAI {
   /**
    * 生成单篇文章摘要
    */
-  async generateArticleSummary(article: Article): Promise<string> {
+  async generateArticleSummary(article: ArticleData): Promise<string> {
     try {
       const templates = getPromptTemplatesForService('github-models');
       const messages: ChatMessage[] = [
@@ -154,7 +129,7 @@ export class GitHubModelsAI {
           role: 'user',
           content: templates.articleSummary.user({
             title: article.title,
-            content: article.content || article.description || '无详细内容'
+            content: article.summary || article.original_summary || '无详细内容'
           })
         }
       ];
@@ -170,9 +145,8 @@ export class GitHubModelsAI {
   /**
    * 批量生成文章摘要
    */
-  async generateArticleSummaries(articles: Article[]): Promise<{ [key: string]: string }> {
+  async generateArticleSummaries(articles: ArticleData[]): Promise<ArticleData[]> {
     console.log(`📝 开始生成 ${articles.length} 篇文章的摘要...`);
-    const summaries: { [key: string]: string } = {};
     
     // 降低并发数以适应GitHub Models速率限制（每分钟10次）
     const concurrency = 2;
@@ -184,9 +158,26 @@ export class GitHubModelsAI {
     
     for (const chunk of chunks) {
       const promises = chunk.map(async (article) => {
-        const summary = await this.generateArticleSummary(article);
-        summaries[article.url] = summary;
-        console.log(`✅ 文章摘要生成完成: ${article.title.substring(0, 50)}...`);
+        try {
+          const summary = await this.generateArticleSummary(article);
+          article.summary = summary;
+          
+          // 检查并生成标题（如果缺失）
+          if (!article.title || article.title.trim() === '') {
+            console.log(`⚠️ 文章缺少标题，正在生成...`);
+            try {
+              article.title = await this.generateTitleFromSummary(summary);
+            } catch (titleError) {
+              console.error('生成标题失败:', titleError);
+              article.title = '无标题';
+            }
+          }
+          
+          console.log(`✅ 文章摘要生成完成: ${article.title.substring(0, 50)}...`);
+        } catch (error) {
+          console.error(`生成文章摘要失败: ${article.title}`, error);
+          article.summary = this.generateFallbackSummary(article);
+        }
       });
       
       await Promise.all(promises);
@@ -200,29 +191,23 @@ export class GitHubModelsAI {
     }
     
     console.log(`✅ 所有文章摘要生成完成`);
-    return summaries;
+    return articles;
   }
 
   /**
    * 生成 AI 日报摘要（两步式处理）
    */
-  async generateDailyReportSummary(articles: Article[]): Promise<{ summary: string; articles: Article[] }> {
+  async generateDailyReportSummary(articles: ArticleData[]): Promise<{ summary: string; articles: any[] }> {
     try {
       console.log('📝 第一步：为每篇文章生成详细中文总结...');
       
       // 第一步：为每篇文章生成详细总结
-      const summaries = await this.generateArticleSummaries(articles);
-      
-      // 将摘要添加到文章对象中
-      const articlesWithSummaries = articles.map(article => ({
-        ...article,
-        summary: summaries[article.url] || this.generateFallbackSummary(article)
-      }));
+      const articlesWithSummaries = await this.generateArticleSummaries(articles);
       
       console.log('📝 第二步：基于所有文章总结生成日报摘要...');
       
       // 第二步：基于所有文章总结生成整体日报摘要
-      const dailySummary = await this.generateOverallSummary(articlesWithSummaries, summaries);
+      const dailySummary = await this.generateOverallSummary(articlesWithSummaries);
       
       return {
         summary: dailySummary,
@@ -243,13 +228,13 @@ export class GitHubModelsAI {
   /**
    * 生成整体日报摘要
    */
-  async generateOverallSummary(articles: Article[], summaries: { [key: string]: string }): Promise<string> {
+  async generateOverallSummary(articles: ArticleData[]): Promise<string> {
     try {
       const templates = getPromptTemplatesForService('github-models');
       const articlesWithSummaries = articles.map(article => ({
         title: article.title,
-        summary: summaries[article.url] || '暂无摘要',
-        source_name: article.category || '未分类'
+        summary: article.summary || '暂无摘要',
+        source_name: article.source_name || '未分类'
       }));
 
       const messages: ChatMessage[] = [
@@ -277,10 +262,10 @@ export class GitHubModelsAI {
   /**
    * 生成日报标题
    */
-  async generateTitle(articles: Article[]): Promise<string> {
+  async generateTitle(articles: ArticleData[]): Promise<string> {
     try {
       const templates = getPromptTemplatesForService('github-models');
-      const categories = [...new Set(articles.map(a => a.category).filter(Boolean))] as string[];
+      const categories = [...new Set(articles.map(a => a.source_name).filter(Boolean))] as string[];
       const messages: ChatMessage[] = [
         {
           role: 'system',
@@ -361,8 +346,8 @@ export class GitHubModelsAI {
   /**
    * 降级摘要生成（API不可用时）
    */
-  private generateFallbackSummary(article: Article): string {
-    const description = article.description || article.content || '';
+  private generateFallbackSummary(article: ArticleData): string {
+    const description = article.summary || article.original_summary || '';
     if (description.length > 150) {
       return description.substring(0, 147) + '...';
     }
@@ -372,8 +357,8 @@ export class GitHubModelsAI {
   /**
    * 降级整体摘要生成（API不可用时）
    */
-  private generateFallbackOverallSummary(articles: Article[]): string {
-    const categories = [...new Set(articles.map(a => a.category).filter(Boolean))];
+  private generateFallbackOverallSummary(articles: ArticleData[]): string {
+    const categories = [...new Set(articles.map(a => a.source_name).filter(Boolean))];
     const today = new Date().toLocaleDateString('zh-CN');
     
     return `今日(${today})共收集 ${articles.length} 篇技术文章，涵盖 ${categories.join('、')} 等领域。` +
@@ -382,8 +367,19 @@ export class GitHubModelsAI {
 }
 
 /**
- * 创建GitHub Models AI服务实例
+ * 创建GitHub Models AI实例
  */
-export function createGitHubModelsAI(config: GitHubModelsConfig): GitHubModelsAI {
-  return new GitHubModelsAI(config);
+export function createGitHubModelsAI(): GitHubModelsAI | null {
+  const token = process.env.GITHUB_TOKEN;
+  
+  if (!token) {
+    console.log('⚠️ 未配置GitHub Token，将使用简单摘要生成');
+    return null;
+  }
+
+  return new GitHubModelsAI({
+    token,
+    model: process.env.GITHUB_MODEL || 'gpt-4o',
+    endpoint: process.env.GITHUB_ENDPOINT
+  });
 }

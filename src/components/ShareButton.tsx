@@ -2,7 +2,7 @@
 
 import { Share2 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { Report } from './DailyReportCard';
+import { Report } from '../types';
 import MultiCardShare from './MultiCardShare';
 import ShareDailyReport from './ShareDailyReport';
 

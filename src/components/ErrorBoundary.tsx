@@ -1,11 +1,7 @@
 'use client';
 
 import React from 'react';
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-}
+import { ErrorBoundaryState } from '../types';
 
 class ErrorBoundary extends React.Component<
   React.PropsWithChildren, 
