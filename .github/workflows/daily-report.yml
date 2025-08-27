@@ -9,11 +9,12 @@ on:
       ai_service:
         description: 'AI服务选择'
         required: false
-        default: 'github-models'
+        default: 'iflow'
         type: choice
         options:
           - volcengine
           - github-models
+          - iflow
       hours_back:
         description: '收集前N小时的资讯数据 (0表示不使用时间过滤)'
         required: false
