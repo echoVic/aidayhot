@@ -1,7 +1,8 @@
 /**
  * iflow.cn AI 服务集成
- * 提供对iflow.cn TBStars2-200B-A13B模型的访问
  */
+
+import { getPromptTemplatesForService } from './prompts';
 
 interface ArticleData {
   title: string;
@@ -63,19 +64,8 @@ class IflowAIClient {
    */
   async analyzeAIRelevance(params: { title: string; summary: string }): Promise<RelevanceAnalysis> {
     try {
-      const prompt = `请分析以下文章是否与人工智能(AI)、机器学习(ML)、深度学习、自然语言处理、计算机视觉等相关。
-
-标题: ${params.title}
-摘要: ${params.summary}
-
-请以JSON格式回复，包含以下字段：
-{
-  "isRelevant": boolean, // 是否与AI相关
-  "score": number, // 相关度分数(0-100)
-  "reason": string // 简短的判断理由
-}
-
-只返回JSON，不要添加其他解释。`;
+      const templates = getPromptTemplatesForService('iflow');
+      const prompt = templates.aiRelevanceAnalysis.user(params);
 
       const response = await this.makeRequest([
         { role: 'user', content: prompt }
@@ -143,17 +133,17 @@ class IflowAIClient {
    */
   async generateArticleSummaries(articles: ArticleData[]): Promise<{ [url: string]: string }> {
     const summaries: { [url: string]: string } = {};
+    const templates = getPromptTemplatesForService('iflow');
 
     for (const article of articles) {
       try {
-        const prompt = `请为以下文章生成一个简洁的中文摘要（100-150字），突出技术要点：
-
-标题: ${article.title}
-内容: ${article.summary}
-
-请直接返回摘要文本，不要添加标题或其他格式。`;
+        const prompt = templates.articleSummary.user({
+          title: article.title,
+          content: article.summary
+        });
 
         const summary = await this.makeRequest([
+          { role: 'system', content: templates.articleSummary.system },
           { role: 'user', content: prompt }
         ], 150);
 
@@ -171,23 +161,20 @@ class IflowAIClient {
    * 生成整体摘要
    */
   async generateOverallSummary(articles: ArticleData[], summaries: { [url: string]: string }): Promise<string> {
-    const articlesContent = articles.map(article => 
-      `- ${article.title} (${article.source_name})\n  ${summaries[article.source_url] || article.summary}`
-    ).join('\n\n');
+    const templates = getPromptTemplatesForService('iflow');
+    const articlesForPrompt = articles.map(article => ({
+      title: article.title,
+      summary: summaries[article.source_url] || article.summary,
+      source_name: article.source_name
+    }));
 
-    const prompt = `基于以下AI相关文章，生成一份今日AI日报的技术趋势总结（200-300字）：
-
-文章列表：
-${articlesContent}
-
-请从以下角度总结：
-1. 主要技术突破点
-2. 新兴趋势和方向
-3. 对行业的潜在影响
-
-请以清晰的中文段落形式呈现。`;
+    const prompt = templates.dailySummary.user({
+      articles: articlesForPrompt,
+      articlesCount: articles.length
+    });
 
     const summary = await this.makeRequest([
+      { role: 'system', content: templates.systemRoles.summaryGenerator },
       { role: 'user', content: prompt }
     ], 400);
 
@@ -198,12 +185,16 @@ ${articlesContent}
    * 生成日报标题
    */
   async generateTitle(articles: ArticleData[]): Promise<string> {
-    const sources = [...new Set(articles.map(a => a.source_name))];
-    const totalArticles = articles.length;
+    const templates = getPromptTemplatesForService('iflow');
+    const categories = [...new Set(articles.map(a => a.source_name))];
 
-    const prompt = `基于 ${totalArticles} 篇来自 ${sources.slice(0, 3).join('、')}${sources.length > 3 ? '等' : ''} 的AI相关文章，生成一个简洁有力的中文日报标题，体现技术前瞻性和专业感。`;
+    const prompt = templates.titleGeneration.fromArticles({
+      articlesCount: articles.length,
+      categories
+    });
 
     const title = await this.makeRequest([
+      { role: 'system', content: templates.systemRoles.titleGenerator },
       { role: 'user', content: prompt }
     ], 100);
 

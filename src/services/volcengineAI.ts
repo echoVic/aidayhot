@@ -3,6 +3,8 @@
  * 用于生成 AI 日报摘要
  */
 
+import { getPromptTemplatesForService } from './prompts';
+
 interface VolcengineConfig {
   apiKey: string;
   endpoint?: string;
@@ -156,24 +158,11 @@ export class VolcengineAI {
    * 构建单篇文章的提示词
    */
   private buildArticlePrompt(article: any): string {
-    return `请阅读以下文章链接的完整内容，并生成一份简洁的中文总结：
-
-文章标题：${article.title}
-文章链接：${article.source_url}
-来源：${article.source_name}
-初步摘要：${article.summary}
-
-要求：
-1. 请直接访问链接，阅读完整的文章内容
-2. 生成50-80字的简洁中文总结（更加精炼）
-3. 突出文章的核心观点、技术要点或重要发现
-4. 使用专业但易懂的中文表达
-5. 如果是技术文章，请解释关键技术概念
-6. 如果是新闻报道，请突出重要事件和影响
-7. 不要仅仅翻译或改写初步摘要，要基于完整内容生成新的总结
-8. 使用简洁的表达，避免冗长的句子
-
-请生成简洁的中文总结：`;
+    const templates = getPromptTemplatesForService('volcengine');
+    return templates.articleSummary.user({
+      title: article.title,
+      content: `文章链接：${article.source_url}\n来源：${article.source_name}\n初步摘要：${article.summary}`
+    });
   }
 
   /**
@@ -185,18 +174,8 @@ export class VolcengineAI {
    */
   async generateTitleFromSummary(summary: string): Promise<string> {
     try {
-      const prompt = `根据以下中文摘要，生成一个简洁、精炼、不超过15个字的中文标题：
-
-摘要：
-${summary}
-
-要求：
-1. 准确捕捉摘要的核心内容。
-2. 标题要吸引人，但不能夸张失实。
-3. 严格控制在15个字以内。
-4. 直接输出标题，不要包含任何额外文字或引号。
-
-生成的标题：`;
+      const templates = getPromptTemplatesForService('volcengine');
+      const prompt = templates.titleGeneration.fromSummary(summary);
 
       const title = await this.callAPI([
         {
@@ -217,33 +196,11 @@ ${summary}
    */
   async analyzeAIRelevance(article: { title: string; summary: string }): Promise<{ isRelevant: boolean; score: number; reason: string }> {
     try {
-      const prompt = `请分析以下文章是否与人工智能(AI)、机器学习(ML)、深度学习(DL)、大语言模型(LLM)等相关技术有关。
-
-标题: ${article.title}
-摘要: ${article.summary}
-
-请返回JSON格式的分析结果:
-{
-  "isRelevant": true/false,
-  "score": 0-100的相关性分数,
-  "reason": "简短的判断理由"
-}
-
-判断标准:
-- 90-100分: 直接讨论AI/ML技术、模型、算法
-- 70-89分: 涉及AI应用、工具、平台
-- 50-69分: 间接相关，如数据科学、自动化等
-- 30-49分: 轻微相关，如技术趋势中提及AI
-- 0-29分: 基本无关
-
-排除内容（直接评为0分）:
-- 营销活动、抽奖、促销、优惠券等商业推广
-- 招聘信息、人事变动
-- 纯娱乐内容、段子、表情包
-- 与技术无关的企业新闻
-- 活动报名、会议通知等事务性信息
-
-阈值: 50分以上认为相关`;
+      const templates = getPromptTemplatesForService('volcengine');
+      const prompt = templates.aiRelevanceAnalysis.user({
+        title: article.title,
+        summary: article.summary
+      });
 
       const response = await this.callAPI([
         { role: 'user', content: prompt }
@@ -271,34 +228,27 @@ ${summary}
    * 注意：这里的 article.summary 已经是 AI 生成的详细总结，不是原始摘要
    */
   private buildDailyPrompt(articles: any[]): string {
-    const articlesText = articles.map((article, index) => 
-      `${index + 1}. 【${article.source_name}】${article.title}\n   AI详细总结: ${article.summary}`
-    ).join('\n\n');
-
-    return `基于以下 ${articles.length} 篇AI文章的详细总结，生成一份简洁的中文日报摘要：
-
-${articlesText}
-
-要求：
-1. 基于上述文章的AI详细总结，提炼今日AI领域的主要动态
-2. 识别和突出最重要的技术趋势、研究突破或行业动态
-3. 生成80-120字的简洁日报摘要（更加浓缩）
-4. 采用专业但易懂的中文表达
-5. 如果有重大技术突破或产品发布，请特别强调
-6. 体现AI领域的整体发展方向和热点话题
-7. 注意：输入的已经是AI生成的详细总结，请基于这些高质量总结进行二次提炼
-8. 使用简洁的要点形式，避免冗长的句子
-
-请生成日报摘要：`;
+    const templates = getPromptTemplatesForService('volcengine');
+    const articlesForPrompt = articles.map(article => ({
+      title: article.title,
+      summary: article.summary,
+      source_name: article.source_name
+    }));
+    
+    return templates.dailySummary.user({
+      articles: articlesForPrompt,
+      articlesCount: articles.length
+    });
   }
 
   /**
    * 调用火山引擎 API
    */
   private async callAPI(messages: ChatMessage[], retries = 2, timeout = 20000): Promise<string | null> {
+    const templates = getPromptTemplatesForService('volcengine');
     const systemMessage: ChatMessage = {
       role: 'system',
-      content: '你是一个专业的AI新闻编辑，你的任务是根据用户提供的内容，生成简洁、准确、专业的中文总结。'
+      content: templates.systemRoles.newsEditor
     };
 
     const controller = new AbortController();

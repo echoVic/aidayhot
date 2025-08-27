@@ -1,3 +1,5 @@
+import { getPromptTemplatesForService } from './prompts';
+
 // 定义Article接口，兼容现有代码结构
 interface Article {
   id?: string;
@@ -142,18 +144,18 @@ export class GitHubModelsAI {
    */
   async generateArticleSummary(article: Article): Promise<string> {
     try {
+      const templates = getPromptTemplatesForService('github-models');
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `你是一个专业的技术文章摘要生成器。请为以下文章生成一个简洁、准确的中文摘要，突出关键技术点和创新之处。摘要应该：
-1. 控制在100-150字以内
-2. 突出技术要点和实用价值
-3. 使用简洁明了的语言
-4. 避免重复文章标题内容`
+          content: templates.articleSummary.system
         },
         {
           role: 'user',
-          content: `文章标题：${article.title}\n\n文章内容：${article.content || article.description || '无详细内容'}`
+          content: templates.articleSummary.user({
+            title: article.title,
+            content: article.content || article.description || '无详细内容'
+          })
         }
       ];
 
@@ -243,29 +245,24 @@ export class GitHubModelsAI {
    */
   async generateOverallSummary(articles: Article[], summaries: { [key: string]: string }): Promise<string> {
     try {
+      const templates = getPromptTemplatesForService('github-models');
       const articlesWithSummaries = articles.map(article => ({
         title: article.title,
         summary: summaries[article.url] || '暂无摘要',
-        category: article.category || '未分类'
+        source_name: article.category || '未分类'
       }));
 
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `你是一个专业的技术日报编辑。请基于今日收集的技术文章，生成一份简洁的日报总结。总结应该：
-1. 控制在80-120字以内（更加浓缩）
-2. 识别和突出最重要的技术趋势、研究突破或行业动态
-3. 如果有重大技术突破或产品发布，请特别强调
-4. 使用专业但易懂的中文表达
-5. 采用简洁的要点形式，避免冗长的句子
-6. 体现技术领域的整体发展方向和热点话题
-7. 不要包含具体日期信息，专注于技术内容本身`
+          content: templates.systemRoles.summaryGenerator
         },
         {
           role: 'user',
-          content: `基于以下 ${articles.length} 篇技术文章的详细总结，生成一份简洁的技术日报摘要：\n\n${articlesWithSummaries.map((item, index) => 
-            `${index + 1}. 【${item.category}】${item.title}\n   AI详细总结: ${item.summary}`
-          ).join('\n\n')}\n\n要求：\n1. 基于上述文章的详细总结，提炼今日技术领域的主要动态\n2. 识别和突出最重要的技术趋势、研究突破或行业动态\n3. 生成80-120字的简洁日报摘要（更加浓缩）\n4. 采用专业但易懂的中文表达\n5. 如果有重大技术突破或产品发布，请特别强调\n6. 体现技术领域的整体发展方向和热点话题\n7. 使用简洁的要点形式，避免冗长的句子\n8. 不要包含具体日期信息，专注于技术内容本身\n\n请生成日报摘要：`
+          content: templates.dailySummary.user({
+              articles: articlesWithSummaries,
+              articlesCount: articles.length
+            })
         }
       ];
 
@@ -282,15 +279,19 @@ export class GitHubModelsAI {
    */
   async generateTitle(articles: Article[]): Promise<string> {
     try {
-      const categories = [...new Set(articles.map(a => a.category).filter(Boolean))];
+      const templates = getPromptTemplatesForService('github-models');
+      const categories = [...new Set(articles.map(a => a.category).filter(Boolean))] as string[];
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: '你是一个专业的技术日报标题生成器。请为技术日报生成一个吸引人的标题，标题应该简洁、专业，体现当日技术热点。'
+          content: templates.systemRoles.titleGenerator
         },
         {
           role: 'user',
-          content: `今日收集了 ${articles.length} 篇文章，涉及领域：${categories.join('、')}。请生成一个日报标题。`
+          content: templates.titleGeneration.fromArticles({
+            articlesCount: articles.length,
+            categories: categories
+          })
         }
       ];
 
@@ -308,14 +309,15 @@ export class GitHubModelsAI {
    */
   async generateTitleFromSummary(summary: string): Promise<string> {
     try {
+      const templates = getPromptTemplatesForService('github-models');
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: '你是一个专业的技术日报标题生成器。基于提供的日报摘要，生成一个简洁、吸引人的标题，突出技术热点和趋势。标题应该在10-20字之间。'
+          content: templates.systemRoles.titleGenerator
         },
         {
           role: 'user',
-          content: `请基于以下日报摘要生成标题：\n\n${summary}`
+          content: templates.titleGeneration.fromSummary(summary)
         }
       ];
 
@@ -333,33 +335,11 @@ export class GitHubModelsAI {
    */
   async analyzeAIRelevance(article: { title: string; summary: string }): Promise<{ isRelevant: boolean; score: number; reason: string }> {
     try {
-      const prompt = `请分析以下文章是否与人工智能(AI)、机器学习(ML)、深度学习(DL)、大语言模型(LLM)等相关技术有关。
-
-标题: ${article.title}
-摘要: ${article.summary}
-
-请返回JSON格式的分析结果:
-{
-  "isRelevant": true/false,
-  "score": 0-100的相关性分数,
-  "reason": "简短的判断理由"
-}
-
-判断标准:
-- 90-100分: 直接讨论AI/ML技术、模型、算法
-- 70-89分: 涉及AI应用、工具、平台
-- 50-69分: 间接相关，如数据科学、自动化等
-- 30-49分: 轻微相关，如技术趋势中提及AI
-- 0-29分: 基本无关
-
-排除内容（直接评为0分）:
-- 营销活动、抽奖、促销、优惠券等商业推广
-- 招聘信息、人事变动
-- 纯娱乐内容、段子、表情包
-- 与技术无关的企业新闻
-- 活动报名、会议通知等事务性信息
-
-阈值: 50分以上认为相关`;
+      const templates = getPromptTemplatesForService('github-models');
+      const prompt = templates.aiRelevanceAnalysis.user({
+        title: article.title,
+        summary: article.summary
+      });
 
       const response = await this.callAPI([
         { role: 'user', content: prompt }
