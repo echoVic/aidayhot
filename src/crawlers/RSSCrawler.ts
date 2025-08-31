@@ -43,48 +43,64 @@ export class RSSCrawler extends BaseCrawler {
   }
 
   async crawl(url?: string, sourceInfo: { sourceId?: string; sourceName?: string; sourceCategory?: string } = {}): Promise<CrawlerResult<RSSFeed>> {
+    const startTime = Date.now();
+    const sourceName = sourceInfo.sourceName || 'Unknown';
+    
     try {
       if (!url) {
         throw new Error('RSS URL is required');
       }
 
-      console.log(`开始爬取RSS源: ${url}`);
+      console.log(`[${sourceName}] 开始爬取RSS源: ${url}`);
+      console.log(`[${sourceName}] 超时设置: ${this.options.timeout || 20000}ms`);
       
       // 使用got获取RSS内容，增强重试和延迟机制
-      const response = await got(url, {
-        timeout: {
-          request: this.options.timeout || 20000 // 增加超时时间到20秒
-        },
-        followRedirect: true,
-        maxRedirects: 10,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*',
-          'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Connection': 'keep-alive',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'cross-site',
-          'Sec-Fetch-User': '?1',
-          'Upgrade-Insecure-Requests': '1',
-          'DNT': '1',
-          'Sec-GPC': '1',
-          ...this.options.headers
-        },
-        retry: {
-          limit: 3, // 增加重试次数
-          methods: ['GET'],
-          statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524], // 包含429状态码
-          errorCodes: ['ETIMEDOUT', 'ECONNRESET', 'EADDRINUSE', 'ECONNREFUSED', 'EPIPE', 'ENOTFOUND', 'ENETUNREACH', 'EAI_AGAIN'],
-          calculateDelay: ({ attemptCount }) => {
-            // 指数退避：第1次重试等待2秒，第2次等待4秒，第3次等待8秒
-            return Math.min(2000 * Math.pow(2, attemptCount - 1), 10000);
+      const response = await Promise.race([
+        got(url, {
+          timeout: {
+            request: this.options.timeout || 20000 // 增加超时时间到20秒
+          },
+          followRedirect: true,
+          maxRedirects: 10,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*',
+            'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Connection': 'keep-alive',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'cross-site',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'DNT': '1',
+            'Sec-GPC': '1',
+            ...this.options.headers
+          },
+          retry: {
+            limit: 3, // 增加重试次数
+            methods: ['GET'],
+            statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524], // 包含429状态码
+            errorCodes: ['ETIMEDOUT', 'ECONNRESET', 'EADDRINUSE', 'ECONNREFUSED', 'EPIPE', 'ENOTFOUND', 'ENETUNREACH', 'EAI_AGAIN'],
+            calculateDelay: ({ attemptCount }) => {
+              console.log(`[${sourceName}] 重试第 ${attemptCount} 次，等待 ${Math.min(2000 * Math.pow(2, attemptCount - 1), 10000)}ms`);
+              // 指数退避：第1次重试等待2秒，第2次等待4秒，第3次等待8秒
+              return Math.min(2000 * Math.pow(2, attemptCount - 1), 10000);
+            }
           }
-        }
-      });
+        }),
+        // 额外的超时保护
+        new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`[${sourceName}] 请求超时 (${(this.options.timeout || 20000) + 5000}ms)`));
+          }, (this.options.timeout || 20000) + 5000);
+        })
+      ]) as any;
+      
+      const requestTime = Date.now() - startTime;
+      console.log(`[${sourceName}] 请求完成，耗时: ${requestTime}ms`);
 
       // 检查响应是否为有效的 XML/RSS 内容
       const bodyTrimmed = response.body.trim().toLowerCase();
@@ -140,8 +156,25 @@ export class RSSCrawler extends BaseCrawler {
         itemCount: items.length
       });
     } catch (error) {
-      const message = `RSS爬取失败 ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      console.error(message);
+      const errorTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      console.error(`[${sourceName}] RSS爬取失败 [${url}] (耗时: ${errorTime}ms):`, {
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+        timeout: this.options.timeout || 20000,
+        url,
+        sourceName
+      });
+      
+      // 检查是否是超时错误
+      if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+        console.error(`[${sourceName}] 检测到超时错误，可能的原因:`);
+        console.error(`  - 网络连接缓慢或不稳定`);
+        console.error(`  - 目标服务器响应缓慢`);
+        console.error(`  - DNS解析问题`);
+        console.error(`  - 防火墙或代理阻止`);
+      }
       
       const emptyFeed: RSSFeed = {
         title: '',
@@ -150,7 +183,7 @@ export class RSSCrawler extends BaseCrawler {
         items: []
       };
 
-      return this.createResult(emptyFeed, false, message);
+      return this.createResult(emptyFeed, false, `[${sourceName}] ${errorMessage} (耗时: ${errorTime}ms)`);
     }
   }
 
