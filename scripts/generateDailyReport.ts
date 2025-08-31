@@ -404,33 +404,56 @@ class GitHubDailyReportGenerator {
     
     console.log(`📊 将抓取 ${filteredSources.length} 个RSS源（共 ${recommendedSources.length} 个可用）`);
     
-    for (let i = 0; i < filteredSources.length; i++) {
-      const source = filteredSources[i];
-      try {
-        console.log(`📡 正在抓取: ${source.name} (${source.category})`);
-        const rssResult = await this.rssCrawler.crawl(source.url);
-        if (rssResult.success && rssResult.data?.items) {
-          let addedCount = 0;
-          for (const item of rssResult.data.items) {
-            // 只处理有有效发布时间的文章
-            if (!item.pubDate || !(item.pubDate instanceof Date)) {
-              console.warn(`跳过无效时间的文章: ${item.title || '无标题'}`);
-              continue;
-            }
-            const publishTime = item.pubDate.toISOString();
-            if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < MAX_RSS_ARTICLES_PER_SOURCE) {
-              const article: ArticleData = {
-                title: item.title || '无标题',
-                original_summary: item.description?.substring(0, 200) + '...' || '暂无摘要',
-                summary: item.description?.substring(0, 200) + '...' || '暂无摘要',
-                source_url: item.link || source.url,
-                source_name: source.name,
-                publish_time: publishTime
-              };
+    // 🚀 使用并发批次处理RSS源，提高容错性
+    const CONCURRENT_RSS_LIMIT = 5; // 同时处理5个RSS源
+    const chunks = [];
+    
+    // 将RSS源分成多个批次
+    for (let i = 0; i < filteredSources.length; i += CONCURRENT_RSS_LIMIT) {
+      chunks.push(filteredSources.slice(i, i + CONCURRENT_RSS_LIMIT));
+    }
+    
+    console.log(`🚀 启用并发处理模式：${filteredSources.length} 个源分为 ${chunks.length} 批，每批最多 ${CONCURRENT_RSS_LIMIT} 个`);
+    
+    // 批次序号
+    let batchNum = 0;
+    
+    // 逐批并发处理RSS源
+    for (const chunk of chunks) {
+      batchNum++;
+      console.log(`📦 开始处理第 ${batchNum}/${chunks.length} 批 (${chunk.length} 个源)`);
+      
+      // 并发处理当前批次的所有RSS源
+      const batchPromises = chunk.map(async (source) => {
+        try {
+          console.log(`📡 正在抓取: ${source.name} (${source.category})`);
+          const rssResult = await this.rssCrawler.crawl(source.url);
+          
+          if (rssResult.success && rssResult.data?.items) {
+            let addedCount = 0;
+            const sourceArticles: ArticleData[] = [];
+            
+            for (const item of rssResult.data.items) {
+              // 只处理有有效发布时间的文章
+              if (!item.pubDate || !(item.pubDate instanceof Date)) {
+                console.warn(`跳过无效时间的文章: ${item.title || '无标题'}`);
+                continue;
+              }
               
-              totalProcessed++;
-              
-               // 对所有RSS源进行AI相关性分析（如果启用）
+              const publishTime = item.pubDate.toISOString();
+              if (isWithinTimeRange(publishTime, HOURS_BACK) && addedCount < MAX_RSS_ARTICLES_PER_SOURCE) {
+                const article: ArticleData = {
+                  title: item.title || '无标题',
+                  original_summary: item.description?.substring(0, 200) + '...' || '暂无摘要',
+                  summary: item.description?.substring(0, 200) + '...' || '暂无摘要',
+                  source_url: item.link || source.url,
+                  source_name: source.name,
+                  publish_time: publishTime
+                };
+                
+                totalProcessed++;
+                
+                // 对所有RSS源进行AI相关性分析（如果启用）
                 if (ENABLE_AI_RELEVANCE_FILTER) {
                   console.log(`🔍 分析文章AI相关性: ${article.title.substring(0, 30)}...`);
                   try {
@@ -438,7 +461,7 @@ class GitHubDailyReportGenerator {
                     console.log(`   📊 相关性分数: ${relevanceResult.score}, 是否相关: ${relevanceResult.isRelevant}, 理由: ${relevanceResult.reason}`);
                     
                     if (relevanceResult.isRelevant) {
-                      articles.push(article);
+                      sourceArticles.push(article);
                       addedCount++;
                       totalAdded++;
                       console.log(`   ✅ 文章通过AI相关性检查，已添加`);
@@ -448,31 +471,56 @@ class GitHubDailyReportGenerator {
                     }
                   } catch (error) {
                     console.warn(`   ⚠️ AI相关性分析失败，默认添加文章:`, error);
-                    articles.push(article);
+                    sourceArticles.push(article);
                     addedCount++;
                     totalAdded++;
                   }
                 } else {
                   // 禁用过滤时直接添加
-                  articles.push(article);
+                  sourceArticles.push(article);
                   addedCount++;
                   totalAdded++;
                   console.log(`   ✅ 过滤已禁用，直接添加: ${article.title.substring(0, 30)}...`);
                 }
+              }
             }
+            
+            console.log(`✅ ${source.name}: 获取 ${addedCount} 篇文章（过去${HOURS_BACK}小时内）`);
+            return { source: source.name, articles: sourceArticles, success: true };
+          } else {
+            console.log(`⚠️ ${source.name}: 未获取到有效内容`);
+            return { source: source.name, articles: [], success: false, reason: '未获取到有效内容' };
           }
-          console.log(`✅ ${source.name}: 获取 ${addedCount} 篇文章（过去${HOURS_BACK}小时内）`);
-        } else {
-          console.log(`⚠️ ${source.name}: 未获取到有效内容`);
+        } catch (error) {
+          console.log(`❌ ${source.name} 抓取失败:`, error);
+          return { source: source.name, articles: [], success: false, reason: error instanceof Error ? error.message : '未知错误' };
         }
-      } catch (error) {
-        console.log(`❌ ${source.name} 抓取失败:`, error);
-      }
+      });
       
-      // 在RSS源之间添加延迟，避免429错误
-      if (i < filteredSources.length - 1) {
-        console.log('⏳ 等待2秒后继续下一个RSS源...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      // 等待当前批次完成
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      // 收集成功的结果
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          articles.push(...result.value.articles);
+        } else if (result.status === 'fulfilled' && !result.value.success) {
+          console.warn(`⚠️ 源 ${result.value.source} 处理失败: ${result.value.reason}`);
+        } else if (result.status === 'rejected') {
+          console.error(`❌ 批次处理异常:`, result.reason);
+        }
+      });
+      
+      // 统计批次结果
+      const batchSuccess = batchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      const batchFailed = batchResults.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
+      
+      console.log(`✅ 第 ${batchNum} 批完成: ${batchSuccess} 成功, ${batchFailed} 失败`);
+      
+      // 批次间短暂延迟，避免过载
+      if (batchNum < chunks.length) {
+        console.log('⏳ 等待1秒后继续下一批...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
